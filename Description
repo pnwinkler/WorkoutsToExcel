@@ -1,0 +1,1 @@
+This directory is the directory for all things GKeep related. If it interacts with GKeep, it goes in this directory. Utilities offers shared functions, and Credentials is a shared file, NOT to be uploaded anywhere, as it contains sensitive information
