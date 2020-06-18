@@ -116,5 +116,6 @@ fabric.properties
 **/credentials.py
 ./credentials.py
 /credentials.py
+utilities/credentials.py
 **/__init__.py
 

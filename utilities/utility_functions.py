@@ -27,8 +27,9 @@ def backup_targetpath():
         print('Backing up target file')
         shutil.copy(target_path, backup_full_path)
 
-def convert_ddmmyyyy_to_datetime(date_str):
+def convert_ddmmyyyy_to_datetime(date_str, verbose=True):
     # take string in form DDMMYYYY and return its datetime equivalent
+    # also accepts strings like DDMONTHYYY where MONTH is a string
     # tolerant of spaces, newlines, semi-colons
     # returns -1 if effort fails
     date_str = date_str.replace('\n','').replace(';','').replace(' ','').replace('.','')
@@ -50,7 +51,8 @@ def convert_ddmmyyyy_to_datetime(date_str):
                     date_str = datetime.strptime(date_str, '%b%d%Y')
                 except Exception as e:
                     # Possible causes: UTF 8 bullshit; unconverted data like "day 1"
-                    print('Error in utilities convert_ddmm_to_datetime:', e)
+                    if verbose:
+                        print('Error in utilities convert_ddmm_to_datetime:', e)
                     return -1
     now = datetime.now()
     date_str = date_str.replace(year=now.year)

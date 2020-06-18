@@ -13,6 +13,10 @@ import utilities.utility_functions as uf
 import utilities.params as p
 import openpyxl
 
+# key is date (particular format!!), value is value found in xlsx file for that date
+date_xlsx_snippet_dict = dict()
+
+
 def retrieve_notes(keep):
     # first retrieve a list of Note objects
     # we want a local cache of all keep files to minimize requests made to Keep
@@ -26,12 +30,10 @@ def retrieve_notes(keep):
 
 
 def is_deletion_candidate(sheet, note, end_date):
-    # TODO: redo this stuff. We don't want to delete the end_date Note,
-    #   we want to delete all Notes up to and including the end date
-
-    # takes a Note object and returns True if it may be deleted, False otherwise
-    # note is the Note object from Keep
-    # end_date is a datetime object indicating the last date we may delete up to (inclusive)
+    # returns True if the Keep object that "note" refers to may be deleted, False otherwise
+    # takes "sheet" in xlsx file within which to search for workout entry
+    # takes "note", a Note object *copied from* Keep (not the actual online object)
+    # takes "end_date" as a datetime object indicating the last date we may delete up to (inclusive)
     # deletion criteria are:
     # 1) date of note is less than end_date
     # 2) note is a workout or cardio note
@@ -39,29 +41,40 @@ def is_deletion_candidate(sheet, note, end_date):
     # 4) note is written to the correct date in xlsx file
 
     # 1)
-    # TODO: make sure this does what it's supposed to and doesn't crash or whatever
-    #  ensure correct year and stuff. Make sure that seconds or whatever don't fuck up the comparison
-    note_date = uf.convert_ddmmyyyy_to_datetime(note.title)
+    # note that second, minutes etc are not stored in either the xlsx file, or in the value returned by the
+    # function below. Therefore, they will not ruin the following simplistic comparison
+
+    if note.title.isalpha():
+        # not a date
+        return False
+
+    note_date = note.title + str(datetime.now().year)
+    note_date = uf.convert_ddmmyyyy_to_datetime(note_date, verbose=False)
+
+    if note_date == -1:
+        return False
+
     if note_date >= end_date:
         return False
 
     # 2)
     is_workout_note = False
-    for line in note.text:
-        if uf.is_est_xx_mins_line(line):
-            is_workout_note = True
+    if uf.is_est_xx_mins_line(note.text):
+        is_workout_note = True
+        # print("AFTER")
+        # exit()
 
     if not is_workout_note:
         return False
 
-
     # find date cell in xlsx matching the date of our Note object
-    row = uf.find_xlsx_datecell(sheet, end_date, p.date_column)
+    row = uf.find_xlsx_datecell(sheet, note_date, p.date_column)
     if row == -1:
         # matching date cell not found.
         # Therefore, we assume workout is not written (Keep2Calc does not write on lines with empty date cells)
         return False
 
+    # 3), 4)
     # check that the workout is written in the corresponding row, in the column we expect
     cell_value = sheet.cell(row=row, column=p.workout_column).value
     if isinstance(cell_value, str):
@@ -69,33 +82,46 @@ def is_deletion_candidate(sheet, note, end_date):
             # workout is probably written. This is a crummy way to check though
             # it will break if I ever change how est_xx_mins lines are stored in the xlsx file
             # this function checks that the est_xx_mins phrase appears anywhere in the line
-            pass
+
+            # this is also shit. We have a datetime object used for scouting the xlsx file
+            # and a string here used as a key. It's probably gonna result in inconsistencies
+            # but I want to use a string as a dict key, not a datetime object.
+            # maybe that's stupid. I'll find out soon
+            # print(f"DEBUG: note_date={note_date}, row={row}, cell_value={cell_value}")
+            # October 16th value never got added here
+            date_xlsx_snippet_dict[get_printable_note_date(note)] = cell_value
         else:
             return False
 
+    if cell_value is None:
+        return False
+
+    return True
 
 
+def get_printable_note_date(note):
+    # used for printing deletion options, and as a dictionary key
+    # first 2 items of split will be DD or MONTH
+    split = note.title.split()
+    # if there's a single digit, like "7", lead it with 0.
+    split = ["0" + x if len(x) < 2 else x for x in split]
+
+    if split[0].isdigit():
+        # example: ['13', January] or ['07', 'November']
+        date = split[0] + split[1]
+    else:
+        date = split[1] + split[0]
+
+    # date += str(datetime.now().year)
+    # date = uf.convert_ddmmyyyy_to_datetime(date)
+    # remove year
+    # date = date[:-4]
+    date = date[:2] + ' ' + date[2:5]
+    # should be like '13 Jan'
+    return date
 
 
-
-    pass
-
-
-def delete_note_from_keep(note):
-    # takes a Note object, and removes it from Keep (i.e. deletes it)
-    pass
-
-def get_note_date(Note_obj):
-    pass
-
-def find_xlsx_date_and_workout(date):
-    # if isinstance(sheet.cell(row=r, column=2).value, datetime):
-    #     cell_date = sheet.cell(row=r, column=2).value
-    #     if cell_date.day == now.day:
-    pass
-
-
-def present_deletion_candidates(notes_to_be_deleted):
+def present_deletion_candidates(deletion_candidates):
     # takes a list of notes facing deletion
     # gives user an overview of these notes, so he can decide whether to proceed
     # format is as follows:
@@ -109,29 +135,50 @@ def present_deletion_candidates(notes_to_be_deleted):
 
     Delete? (Y/N)
     '''
-    header = 'Date\tNote snippet\t\tExists in xlsx as...'
+    snippet_length = 30
+    header = 'Date\tNote snippet\t\t\t\t\tExists in xlsx as...'
     print(header)
 
-    # we need:
-    # 1) dates from Note objects
-    # 2) access to xlsx dates, neighboring cells & their contents
-    # deal with missing xlsx entries or whatever else. So it doesn't crash
-    pass
+    # todo: get this to print neatly. ljust or something might help
+    # that shit is way too involved. I'm shelving it for now.
+    # example problem:
+    '''
+    19 Mar	Home legs arms side delts work	Home legs + arms + side delts...
+    16 Mar	Home workout Est ?? mins 	Est ?? mins...
+    13 Mar	Home workout Est ?? mins 	Est ?? mins...
+    11 Mar	Some band work: arms, shoulder	Some band work: arms, shoulder...
+    '''
+    for note in deletion_candidates:
+        # comment lines don't appear in the xlsx file, so they're unhelpful for side-by-side comparison
+        note_snippet = return_note_text_minus_comments(note).replace('\n', ' ')
+        if len(note_snippet) < (snippet_length):
+            # This makes even short lines fit into neat columns
+            # 20 is an arbitrary number.
+            note_snippet += ' ' * 20
+        note_snippet = note_snippet[:snippet_length]
+
+        print(get_printable_note_date(note), end='')
+        print('\t' + note_snippet, end='')
+        # give snippet from xlsx matching date of note, limited in length by snippet_length
+        # +1 to xlsx snippet length because it ";" separates exercises. By adding +1, the 2 kinds of snippet
+        # appear to terminate on the same character, more often.
+        print('\t' + date_xlsx_snippet_dict[get_printable_note_date(note)][:snippet_length+1].rstrip() + '...')
+
+    print()
 
 
-def deletion_requested_tf():
-    # todo: don't make this return true. that makes no sense. Change the logic or the name
+def is_deletion_requested():
     # returns True if permission is given to delete ALL notes presented by present_deletion_candidates()
-    pass
+    deletion_requested = input('\nDelete all? (Y/n): ').lower()
+    if deletion_requested == 'y':
+        return True
+    return False
 
 
 def greet():
     greeting = '\n\t\t GKEEP NOTE DELETER \n' + \
                '\tdeletes workout notes from a google keep account up to a given date\n'
     print(greeting)
-
-    # todo: think of some way to stop it deleting workout notes from the future?
-    # perhaps someday that's a bug I'd that my changing habits might introduce
 
 
 def request_end_date():
@@ -159,6 +206,25 @@ def request_end_date():
         if response == 'y':
             return tar_date
 
+
+def return_note_text_minus_comments(note):
+    # given a note, return its text as a string, with comment lines omitted
+    # the returned string includes newlines, roughly as were present originally
+    retstr = ''
+    for line in note.text.split('\n'):
+        line = line.lstrip().replace('\n', '')
+        if line.startswith(('/', '(')):
+            continue
+        if "home workout" in line.lower():
+            continue
+        else:
+            if len(line) > 3:
+                # remove "+" because they're not relevant to comparison in present_deletion_candidates
+                retstr += line.replace('+ ', '').replace('+', '') + '\n'
+
+    return retstr
+
+
 def main():
     if not uf.target_is_xslx():
         raise ValueError("target_path in utilities.parameters incorrectly set. It does not point to an xlsx file")
@@ -179,9 +245,12 @@ def main():
             deletion_candidates.append(note)
 
     present_deletion_candidates(deletion_candidates)
-    if deletion_requested_tf():
+    if is_deletion_requested():
         for note in deletion_candidates:
-            delete_note_from_keep(note)
+            # trash() is reversible. delete() is not. Trashed notes will be deleted in 7 days.
+            note.trash()
+    else:
+        exit()
 
 
 if __name__ == '__main__':
