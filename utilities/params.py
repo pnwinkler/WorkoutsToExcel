@@ -11,6 +11,7 @@ cleaned_data_path = os.path.join(os.path.sep, 'home','philip','Desktop', 'keep2c
 backup_folder_name = None
 
 date_column = 2
+bodyweight_column = 3
 workout_column = 5
 
 # ______________________________________________________________________________________________________

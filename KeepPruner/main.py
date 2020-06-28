@@ -17,18 +17,6 @@ import openpyxl
 date_xlsx_snippet_dict = dict()
 
 
-def retrieve_notes(keep):
-    # first retrieve a list of Note objects
-    # we want a local cache of all keep files to minimize requests made to Keep
-    # that minimizes the effect of latency, in addition to improving stability
-    # (if the internet suddenly cuts out, a failed request could cause problems)
-    print('Retrieving notes')
-    gnotes = keep.all()
-    if not gnotes:
-        raise ValueError('No notes found. Incorrect username or password?')
-    return gnotes
-
-
 def is_deletion_candidate(sheet, note, end_date):
     # returns True if the Keep object that "note" refers to may be deleted, False otherwise
     # takes "sheet" in xlsx file within which to search for workout entry
@@ -61,8 +49,6 @@ def is_deletion_candidate(sheet, note, end_date):
     is_workout_note = False
     if uf.is_est_xx_mins_line(note.text):
         is_workout_note = True
-        # print("AFTER")
-        # exit()
 
     if not is_workout_note:
         return False
@@ -82,13 +68,6 @@ def is_deletion_candidate(sheet, note, end_date):
             # workout is probably written. This is a crummy way to check though
             # it will break if I ever change how est_xx_mins lines are stored in the xlsx file
             # this function checks that the est_xx_mins phrase appears anywhere in the line
-
-            # this is also shit. We have a datetime object used for scouting the xlsx file
-            # and a string here used as a key. It's probably gonna result in inconsistencies
-            # but I want to use a string as a dict key, not a datetime object.
-            # maybe that's stupid. I'll find out soon
-            # print(f"DEBUG: note_date={note_date}, row={row}, cell_value={cell_value}")
-            # October 16th value never got added here
             date_xlsx_snippet_dict[get_printable_note_date(note)] = cell_value
         else:
             return False
@@ -112,23 +91,18 @@ def get_printable_note_date(note):
     else:
         date = split[1] + split[0]
 
-    # date += str(datetime.now().year)
-    # date = uf.convert_ddmmyyyy_to_datetime(date)
-    # remove year
-    # date = date[:-4]
+    # date should be like '13 Jan' or '07 Mar'
+    # it's legible, and makes presenting deletion candidates simple (in terms of formatting)
     date = date[:2] + ' ' + date[2:5]
-    # should be like '13 Jan'
     return date
 
 
 def present_deletion_candidates(deletion_candidates):
-    # takes a list of notes facing deletion
-    # gives user an overview of these notes, so he can decide whether to proceed
+    # param: deletion_candidates is a list of note objects
+    # (those objects are valid candidates for trashing, in the Keep app)
+    # function: gives user an overview of these notes, so he can decide whether to proceed with trashing
     # format is as follows:
-    # {notes to be deleted, an abort option, a snippet from the allegedly matched cell in the xlsx file, ...}
     '''
-    example layout:
-
     date    note to be deleted snippet      snippet from xlsx
     ...     ...                             ...
     ...     ...                             ...
@@ -139,15 +113,6 @@ def present_deletion_candidates(deletion_candidates):
     header = 'Date\tNote snippet\t\t\t\t\tExists in xlsx as...'
     print(header)
 
-    # todo: get this to print neatly. ljust or something might help
-    # that shit is way too involved. I'm shelving it for now.
-    # example problem:
-    '''
-    19 Mar	Home legs arms side delts work	Home legs + arms + side delts...
-    16 Mar	Home workout Est ?? mins 	Est ?? mins...
-    13 Mar	Home workout Est ?? mins 	Est ?? mins...
-    11 Mar	Some band work: arms, shoulder	Some band work: arms, shoulder...
-    '''
     for note in deletion_candidates:
         # comment lines don't appear in the xlsx file, so they're unhelpful for side-by-side comparison
         note_snippet = return_note_text_minus_comments(note).replace('\n', ' ')
@@ -161,8 +126,8 @@ def present_deletion_candidates(deletion_candidates):
         print('\t' + note_snippet, end='')
         # give snippet from xlsx matching date of note, limited in length by snippet_length
         # +1 to xlsx snippet length because it ";" separates exercises. By adding +1, the 2 kinds of snippet
-        # appear to terminate on the same character, more often.
-        print('\t' + date_xlsx_snippet_dict[get_printable_note_date(note)][:snippet_length+1].rstrip() + '...')
+        # appear to more frequently terminate on the same character.
+        print('\t' + date_xlsx_snippet_dict[get_printable_note_date(note)][:snippet_length + 1].rstrip() + '...')
 
     print()
 
@@ -234,7 +199,7 @@ def main():
     greet()
     end_date = request_end_date()
     keep = uf.login_and_return_keep_obj()
-    notes = retrieve_notes(keep)
+    notes = uf.retrieve_notes(keep)
     deletion_candidates = []
 
     wb = openpyxl.load_workbook(p.target_path)

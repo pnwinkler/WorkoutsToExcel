@@ -1,182 +1,188 @@
 # retrieves bodyweights from Google Keep, then writes them to the correct date cell in the specified file
 # does intelligent stuff too, like alert the user to missing entries, etc
-# intended to be run via crontab. That's why we catch all errors and write to Desktop
+# consider creating a version for use by crontab
 # REMEMBER to change params whenever necessary.
-# Note that this file uses a different params to Keep2CalcV4
 
-# todo: make it cope with '?, ' entries!
-
-import gkeepapi
 import openpyxl
 import re
 from datetime import datetime
-from utilities.credentials import username, password
 import utilities.params as p
-import os
+import utilities.utility_functions as uf
+
+
+# todo: make program recognize duplicates?
+# i.e. find the longest continuous string present in both Keep and the xlsx file
+# why?
+# in case there's overlap
+# why does that matter?
+#
+
 
 def main():
-    # we put this inside a try block so that we can write un-programmed errors to our desired location
-    # as well as errors that we intentionally raise
+    if not uf.target_is_xslx():
+        raise ValueError("Target path specified in params.py does not point to xlsx file")
+    if not uf.targetsheet_exists():
+        raise ValueError("Target xlsx does not contain sheet specified in params.py")
 
-    # if error note exists, don't run
-    if os.path.isfile(ERROR_LOG):
-        exit()
+    keep = uf.login_and_return_keep_obj()
+    notes = uf.retrieve_notes(keep)
+    bodyweights_lst = find_and_return_bodyweights(notes)
 
-    try:
-        notes = login_and_return_notes()
-        bodyweights = find_and_return_bodyweights(notes)
-        logic_check_bodyweights(bodyweights)
-        bw = select_correct_bodyweight(bodyweights)
-        write_bw_to_file(bw)
-
-    except Exception as e:
-        write_error_and_exit(e)
-
-
-def login_and_return_notes():
-    # handle exceptions like changed password or whatever preventing login
-    # or an absent internet connection preventing login
-
-    # todo: test for internet connectivity first
-
-    keep = gkeepapi.Keep()
-
-    if not username:
-        write_error_and_exit('No username provided')
-    if not password:
-        write_error_and_exit('No password provided')
-
-    keep.login(username, password)
-
-    # retrieves a list of Note objects
-    gnotes = keep.all()
-    if not gnotes:
-        write_error_and_exit('No notes found', 'Username/password may be incorrect. Please review params.py')
-    return gnotes
-
-
-def find_and_return_bodyweights(notes):
-    # take all notes as a parameter
-    # find the bodyweights note, then returns its contents
-
-    # match 2 digits + comma or 2 digits + 1 decimal point + comma.
-    # in both cases, a space is allowed both before and after the comma
-    bw_reg = re.compile(r'(\d\d\.\d\s?,)|(\d\d\s?,)')
-
-    for gnote in notes:
-        # we ignore the title. We match only the body
-        text = gnote.text
-
-        if text.count('\n') != 0:
-            # our bodyweights file will have no newlines
-            continue
-        else:
-            if bw_reg.search(text):
-                # we have a match. Now we proof that the majority of the line is relevant
-                str_copy = text[::]
-                orig_len = len(str_copy)
-                match_lst_tpls = bw_reg.findall(text)
-                for match_tup in match_lst_tpls:
-                    str_copy = str_copy.replace(match_tup[0], '')
-                if len(str_copy) < (0.3 * orig_len) + 1:
-                    # 70%+ match
-                    return text
-
-    write_error_and_exit('No matching note found',
-                         'Does your bodyweight note exist? Is it in a valid format? ' + \
-                         'Like 2 digits and a comma, or 2 digits 1 decimal place and a comma. ' + \
-                         'Please ENSURE that there is no newline in your note')
-
-
-def logic_check_bodyweights(bodyweights_str):
-    # todo: rename
-    # raises errors if missing values etc. Just inform user of any problems
-    # decide what to do in the case of errors that the user does not need to know of
-    # note also that bodyweights need to be checked in 2 locations: 1) the downloaded bodyweights
-    # 2) the already logged or absent-from-file bodyweights.
-
-    # verify that the number of missing bodyweights exactly matches the number in the arg str
     wb = openpyxl.load_workbook(p.target_path)
     sheet = wb[p.target_sheet]
 
-    # 1) find first empty bodyweight cell neighboring a date cell
-    # 1140 is hacky - it's just where we're at now
-    first_vacancy_row = None
-    for t in range(1140, 15000):
-        if sheet.cell(row=t, column=p.bodyweights_column).value == None:
-            if isinstance(sheet.cell(row=t, column=p.dates_column).value, datetime):
-                # empty bodyweight cell found next to a date cell.
-                first_vacancy_row = t
+    # return range of rows requiring writes
+    row_range_tpl = return_bw_rows_requiring_write(sheet)
+    print(f'DEBUG: row_range_tpl={row_range_tpl}')
+    print(f'DEBUG: bodyweights_lst={bodyweights_lst}')
 
-    if not first_vacancy_row:
-        # we are up to date ***OR there's a problem finding vacancies***
+    # confirm that the length of that range matches the number of bodyweights found in the Keep note
+    if do_bodyweights_fill_all_vacancies(bodyweights_lst, row_range_tpl):
+        uf.backup_targetpath()
+        # writes to, but does not save file
+        print("Writing to file")
+        write_to_file(sheet, bodyweights_lst, row_range_tpl[0])
+    else:
+        # error messages already handled in condition function above
         exit()
 
-    # 2) find today's date, so we can calculate the number of vacancies
-    todays_row = None
-    now = datetime.now()
-    r = first_vacancy_row
-    # + 100 is an arbitrary cut-off point
-    while r < first_vacancy_row + 100:
-        r += 1
-        # check datetime cells in Column C for exercise_datetime match...
-        if isinstance(sheet.cell(row=r, column=2).value, datetime):
-            cell_date = sheet.cell(row=r, column=2).value
-            if cell_date.day == now.day:
-                # we found today's cell
-                todays_row = r
+    wb.save(p.target_path)
 
-    if not todays_row:
-        write_error_and_exit('Program did not find a date cell matching today\'s date in target file',
-                             'This may be a programming error, in logic_check_bodyweights(), or simply an absent date cell')
-
-    # 3) find the number of cells between them (inclusive count, hence the +1)
-    count_cells_to_fill = todays_row - first_vacancy_row + 1
-
-    # 4) check this count matches the length of our argstr.split(',')
-    if count_cells_to_fill != bodyweights_str.split(','):
-        write_error_and_exit(
-            f"{count_cells_to_fill} vacancies in target file found, but only " +
-            f"{bodyweights_str.split(',')} values in the bodyweight note")
-
-    # 5) if it does, we can proceed
-
-    # compare the number of unwritten bodyweights to the holes in the xlsx file
-    # double check that the two don't already duplicate each other
-    # etc...
-    pass
+    # todo: write to file, then remove entries from Keep
+    #   it's not a good idea to remove entries until we're certain that they're written
+    #   so either don't remove them, or find a foolsafe way to make sure they're written
+    print("DEV: entries will not be deleted from note after completion, because program is untested. It may fail")
+    print("DEV: therefore you MUST remove verify that those bodyweights were written, then remove from Keep yourself")
 
 
-# def select_correct_bodyweight(bodyweights):
-#     # choose the correct bodyweight to return
-#     # alerts need to be figured in this file somewhere
-#     # should have a way to cope with previously interrupted service
-#     #   i.e. if the program wasn't run for a week, it won't fail or do something weird
-#     return None
-#
-#
-# def write_bw_to_file():
-#     def find_correct_cell():
-#         # find the correct cell to write to. Handle errors / problems that may arise.
-#         return None
-#
-#     target_cell = find_correct_cell()
-#     # write to target_cell, close file, exit, do any tidyup or logging that should be done
-#     pass
+def find_and_return_bodyweights(notes):
+    """
+    Within "notes", find the bodyweights note and return its modified contents
+    :param notes: the Keep notes object (which contains all notes)
+    :return: a list of integers
+    """
+
+    # we expect formats like these 3 below:
+    # 83.2, 83, 83.4,
+    # 101,
+    # 100.4, 100.9, 99.8,
+    # i.e. 2-3 digits with optional decimal place followed by a comma
+    # spaces are optional. Commas are not. Each number must be followed by one comma
+    bw_reg = re.compile(r'(\d{2,3}\.\d\s?,)+'
+                        r'|(\d{2,3}\s?,)+'
+                        r'|(\?{1,3}\s?,)+')
+
+    for gnote in notes:
+        # match either title or body. It's user preference where the weights will be
+        for x in [gnote.title, gnote.text]:
+            if not x.replace(",", "").replace(" ", "").replace(".", "").replace("?", "").isdigit():
+                continue
+            else:
+                bodyweights = ["".join(m) for m in re.findall(bw_reg, x)]
+                bodyweights = [t[:-1] for t in bodyweights]
+                # This changes findall's output from this kind:
+                # [('', '81,'), ('', '85,'), ('', '102,'), ('102.1,', '')]
+                # to this kind
+                # ['81', '85', '102', '102.1']
+
+                if len(bodyweights) > 1:
+                    return bodyweights
+
+    raise ValueError("No matching note found. "
+                     "1) Does your bodyweight note exist? "
+                     "2) Is it in a valid format, with more than 1 entry? "
+                     "3) Does it contain only numbers, spaces, commas and full stops?")
 
 
-def write_error_and_exit(error, solution="None provided"):
-    # takes a String error message and String solution.
-    # Writes both to the location specified in params, then exits program
-    # the purpose of this is to notify the user of any error
-    # tell them what to do, where to look, what and where this program is, etc
-    error_msg = f"ERROR: {__file__} raised error:\n" + error + "\n\n" + "Suggested action:\n\t" + solution
-    with open(ERROR_LOG) as f:
-        f.write(error_msg)
-        f.write('\n\n\nSo long as this file exists here, with this name, the program will not execute again.')
-        # ... as specified in main()
+def return_bw_rows_requiring_write(sheet):
+    """
+    Return which rows should contain bodyweights but don't
+    :param sheet: sheet in xlsx file containing bodyweights and dates
+    :return: tuple of length 2, containing start and end rows
+    """
 
-    exit()
+    # keep going down bodyweight column,
+    # counting empty bodyweight cells that neighbour a date cell
+    # until date == today.
+    # **we assume that every date is intended to have an accompanying bodyweight**
+    start = None
+    count_unwritten_cells = 0
+
+    for t in range(1, 1000000):
+        # some rows in this column are strings
+        if isinstance(sheet.cell(row=t, column=p.date_column).value, datetime):
+            if sheet.cell(row=t, column=p.date_column).value > datetime.now():
+                return start, start + count_unwritten_cells
+        if sheet.cell(row=t, column=p.bodyweight_column).value is None:
+            if isinstance(sheet.cell(row=t, column=p.date_column).value, datetime):
+                # empty bodyweight cell found next to a date cell.
+                if not start:
+                    start = t
+                else:
+                    count_unwritten_cells += 1
+
+
+def do_bodyweights_fill_all_vacancies(bodyweights_lst, row_range):
+    """
+    :param bodyweights_lst: list of bodyweights in such a format: ['81', '85', '102', '102.1']
+    :param row_range: tuple containing number of first and last rows lacking bodyweights
+    :return: True if the number of provided bodyweights equals the number of absent bodyweights. Else False.
+    """
+    # informs user if values are missing or too numerous
+    # relative to the vacancies present in the xlsx file
+
+    # number of empty cells. 1+ makes it inclusive
+    count_required = 1 + row_range[1] - row_range[0]
+    # number of provided bodyweights. Skip first value
+    count_provided = len(bodyweights_lst) - 1
+
+    if count_provided < count_required:
+        print(f"Too few values provided. Needed {count_required}, provided with {count_provided}")
+        return False
+    elif count_provided > count_required:
+        print(f"Too many values provided. Needed {count_required}, provided with {count_provided}")
+        return False
+    return True
+
+
+def write_to_file(sheet, bodyweights_lst, start_row):
+    """
+    :param sheet: sheet in xlsx file containing bodyweights and dates
+    :param bodyweights_lst: list of bodyweights in such a format: ['81', '85', '102', '102.1']
+    :param start_row (int)
+    """
+    for bw in bodyweights_lst:
+        if sheet.cell(row=start_row, column=p.bodyweight_column).value is None:
+            # TODO: resolve
+            # for mysterious reasons, every weight gets written with a prepended '
+            # is this an openpyxl bug? .replace("'","") does nothing to fix problem
+            '''
+            says: https://superuser.com/questions/394092/how-to-remove-a-plain-text-protecting-single-quote-from-all-the-selected-cells-i
+            
+            You can remove the leading single quote 
+            (which actually isn't part of the string in the cell) 
+            using a regex-based search and replace:
+
+            Search for all characters between the start and end of the string 
+            ^.*$
+            replace with match 
+            &
+            
+            For some reason, in LibreOffice, "Data" menu -> "Text to columns" also works
+            ...at least after the fact. Idk whether it's preventative.
+            
+            the apostrophe is an indicator that a cell is formatted as numeric/date value
+            and apparently does not change the value of the cell.
+            but it does left adjust it, which is irritating.
+            
+            Did you try sheet.cell("C1").set_explicit_value("value", 's')
+            '''
+            sheet.cell(row=start_row, column=p.bodyweight_column).value = bw
+            start_row += 1
+        else:
+            print(f"Cannot write to cell {start_row} - cell already written to!")
+            print("No changes have been made")
+            exit()
 
 
 if __name__ == '__main__':

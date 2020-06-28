@@ -27,12 +27,13 @@ def backup_targetpath():
         print('Backing up target file')
         shutil.copy(target_path, backup_full_path)
 
+
 def convert_ddmmyyyy_to_datetime(date_str, verbose=True):
     # take string in form DDMMYYYY and return its datetime equivalent
     # also accepts strings like DDMONTHYYY where MONTH is a string
     # tolerant of spaces, newlines, semi-colons
     # returns -1 if effort fails
-    date_str = date_str.replace('\n','').replace(';','').replace(' ','').replace('.','')
+    date_str = date_str.replace('\n', '').replace(';', '').replace(' ', '').replace('.', '')
 
     # if not date_str.isdigit():
     #     raise ValueError(f'Invalid parameter for utilities convert_ddmm_to_datetime, date_str={date_str}')
@@ -108,6 +109,7 @@ def find_xlsx_datecell(sheet, datetime_date, date_column=2):
             if empty_cell_count > 50:
                 return -1
 
+
 def is_est_xx_mins_line(line):
     # I decided against putting this regex in utilities.params because
     # it's fundamental to how my programs work, and cannot be changed without significant consequence
@@ -116,21 +118,35 @@ def is_est_xx_mins_line(line):
     est_xx_mins_reg = re.compile(r'(est \d\d(\d)? min)|(est \?\? min)|(est \?\?\? min)', re.IGNORECASE)
     return re.search(est_xx_mins_reg, line)
 
+
 def login_and_return_keep_obj():
     keep = gkeepapi.Keep()
 
     try:
-        from utilities.credentials import username
+        from utilities.credentials import username, password
     except FileNotFoundError:
         # to avoid typing your username each time, change the following line in params.py
         # username = 'YOUR_USERNAME@gmail.com'
         username = input('Google Keep username: ')
 
     # getpass obscures the password as it's entered
-    password = getpass.getpass('Google Keep password: ')
+    if password is None:
+        password = getpass.getpass('Google Keep password: ')
     print('Logging in...')
     keep.login(username, password)
     return keep
+
+
+def retrieve_notes(keep):
+    # first retrieve a list of Note objects
+    # it's good practise to retrieve all at once; a local cache minimizes requests
+    # the effect of latency, and reliance on a potentially unstable internet connection
+    print('Retrieving notes')
+    gnotes = keep.all()
+    if not gnotes:
+        raise ValueError('No notes found. Incorrect username or password?')
+    return gnotes
+
 
 def target_is_xslx():
     # returns True if target_path is .xslx
