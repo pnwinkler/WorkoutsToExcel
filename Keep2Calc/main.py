@@ -1,11 +1,12 @@
-# TODO: delete source on desktop after successful program run
+# todo: delete source on desktop after successful program run
 # BEST CALLED VIA COMMAND LINE
 # NOTE: should not be used for workouts more than 1 year old!!
 # it will write them to the wrong cell
 # this is a limitation of the format for the title of each gkeep note
 # "24 October" for example does not specify a year
 
-from Keep2Calc import retrieve_data_from_gkeep as retrieve, keep_to_calc as ktc
+import Keep2Calc.retrieve_data_from_gkeep as retrieve
+import Keep2Calc.keep_to_calc as ktc
 import utilities.params as p
 import sys
 import os
@@ -38,7 +39,8 @@ with open(p.cleaned_data_path, 'w+') as f:
 
 print()
 # hacky attempt to print filename, not the whole path
-print(f'Removed unrelated lines from source. Please verify that new file "{p.cleaned_data_path.split("/")[-1]}" contains no data unrelated to workouts')
+print(
+    f'Removed unrelated lines from source. Please verify that new file "{p.cleaned_data_path.split("/")[-1]}" contains no data unrelated to workouts')
 print('When ready, press \'y\'.')
 print('If the file needs modifying, press \'n\' to quit, and use the --no-fetch parameter next execution')
 print('cleaned file = ', p.cleaned_data_path)
@@ -47,6 +49,7 @@ uin = input('Input: ')
 if uin != 'y':
     print('User input did not equal \'y\'. Exiting program in 5 seconds')
     import time
+
     time.sleep(5)
     exit()
 

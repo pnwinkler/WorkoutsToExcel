@@ -1,12 +1,12 @@
-# removes workout Notes from Keep that are already written to the big xlsx file
+# removes workout Notes from Keep that are already written
+# to the xlsx file specified in utilities.params.target_path,
 # up to a given, user-provided date
 
 # How it works:
-# retrieves and processes all Note objects at once, then requests user's permission to delete
-
-# NOTE: although ignoring / deleting each Note as it's retrieved would speed the process
-# (as notes to be deleted would not have to be searched for again)
-# processing all notes at once allows us to present the user an overview
+# retrieves and processes all Note objects at once,
+# gives user overview of notes facing deletion, plus how they exist
+# both in target_path, and in the Keep note,
+# then requests user's permission to delete
 
 from datetime import datetime, timedelta
 import utilities.utility_functions as uf
@@ -29,14 +29,16 @@ def is_deletion_candidate(sheet, note, end_date):
     # 4) note is written to the correct date in xlsx file
 
     # 1)
-    # note that second, minutes etc are not stored in either the xlsx file, or in the value returned by the
-    # function below. Therefore, they will not ruin the following simplistic comparison
+    # note that second, minutes etc are not stored in either the xlsx file,
+    # or in the value returned by the function below.
+    # Therefore, they will not ruin the following simplistic comparison
 
     if note.title.isalpha():
         # not a date
         return False
 
     note_date = note.title + str(datetime.now().year)
+    # this function both converts, and ensures that note_date is not set to a future date
     note_date = uf.convert_ddmmyyyy_to_datetime(note_date, verbose=False)
 
     if note_date == -1:
@@ -110,7 +112,8 @@ def present_deletion_candidates(deletion_candidates):
     Delete? (Y/N)
     '''
     snippet_length = 30
-    header = 'Date\tNote snippet\t\t\t\t\tExists in xlsx as...'
+    print("\n**DELETION CANDIDATES**")
+    header = 'Date\tNote snippet\t\t\tExists in xlsx as...'
     print(header)
 
     for note in deletion_candidates:
@@ -134,14 +137,14 @@ def present_deletion_candidates(deletion_candidates):
 
 def is_deletion_requested():
     # returns True if permission is given to delete ALL notes presented by present_deletion_candidates()
-    deletion_requested = input('\nDelete all? (Y/n): ').lower()
+    deletion_requested = input('Delete all? (Y/n): ').strip().lower()
     if deletion_requested == 'y':
         return True
     return False
 
 
 def greet():
-    greeting = '\n\t\t GKEEP NOTE DELETER \n' + \
+    greeting = '\n\t\t\t GKEEP NOTE DELETER \n' + \
                '\tdeletes workout notes from a google keep account up to a given date\n'
     print(greeting)
 
@@ -167,7 +170,7 @@ def request_end_date():
             tar_date -= timedelta(days=365)
         print(datetime.strftime(tar_date, '%d/%m/%Y'))
 
-        response = input('>Is this date correct? (y/n)').lower()
+        response = input('>Is this date correct? (Y/n)').lower()
         if response == 'y':
             return tar_date
 
@@ -213,7 +216,15 @@ def main():
     if is_deletion_requested():
         for note in deletion_candidates:
             # trash() is reversible. delete() is not. Trashed notes will be deleted in 7 days.
-            note.trash()
+            if note is not None:
+                note.trash()
+        keep.sync()
+        certain = input("Press 'C' to confirm deletion. Any other key to undo: ").lower()
+        if certain != 'c':
+            for note in deletion_candidates:
+                # trash() is reversible. delete() is not. Trashed notes will be deleted in 7 days.
+                note.untrash()
+        keep.sync()
     else:
         exit()
 

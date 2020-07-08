@@ -1,4 +1,6 @@
-# retrieves bodyweights from Google Keep, then writes them to the correct date cell in the specified file
+# retrieves bodyweights from Google Keep,
+# then writes them to the correct date cell
+# in the file specified by utilities.params.target_path
 # does intelligent stuff too, like alert the user to missing entries, etc
 # consider creating a version for use by crontab
 # REMEMBER to change utilities.params whenever necessary.
@@ -52,6 +54,7 @@ def trash_original_and_replace(keep, bw_note):
     # Trash original bodyweight note, and replace with a new one-value bodyweights note
     # items in trash remain available for 7 days.
     # whereas changes to bw_note would be irreversible
+    # that's why we create a new note this way.
     new_note_value = return_bodyweights_lst(bw_note)[-1] + ", "
     keep.createNote('', new_note_value)
     bw_note.trash()
@@ -71,7 +74,7 @@ def find_bodyweights_note(notes):
     # 83.2, 83, 83.4,
     # 101,
     # 100.4, 100.9, 99.8,
-    # i.e. 2-3 digits with optional decimal place followed by a comma
+    # i.e. 2-3 digits with optional decimal place, followed by a comma
     # spaces are optional. Commas are not. Each number must be followed by one comma
     for gnote in notes:
         # match either title or body. It's user preference where the weights will be
@@ -79,7 +82,7 @@ def find_bodyweights_note(notes):
             if not x.replace(",", "").replace(" ", "").replace(".", "").replace("?", "").isdigit():
                 continue
             else:
-                # otherwise we might match
+                # by default, trashed notes are also searched.
                 if gnote.timestamps.trashed is not None:
                     return gnote
 
@@ -132,22 +135,20 @@ def return_bw_rows_requiring_write(sheet, bw_edit_timestamp):
     :param bw_edit_timestamp: datetime object in form '%Y-%m-%dT%H:%M:%S.%fZ
     :return: tuple of length 2, containing start and end rows
     """
-    # inform the user if their bodyweights note was not edited today.
-    # so that they don't wonder why the program won't write a value for today
-    # (It's user error, not program error)
     today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     # for mysterious reasons, datetime.today() doesn't actually get TODAY, it gets RIGHT NOW.
-    # so using .now() or .today() is a moot distinction. The .replace is still needed
+    # so using .now() or .today() is a moot distinction. The .replace is needed regardless
 
     if bw_edit_timestamp < today:
         print("- You have not edited your bodyweights note today. -")
         print("- Therefore, no weight will be written for today (you forgot to log it) -")
         print("- Suggested action: average yesterday's and tomorrow's bodyweights, tomorrow. -")
+        print("(the program will now run as normal)")
 
-    # keep going down bodyweight column,
-    # counting empty bodyweight cells that neighbour a date cell
+    # descend bodyweight column,
+    # counting empty cells that neighbour a date cell
     # until date > bw_edit_timestamp.
-    # **we assume that every date is intended to have an accompanying bodyweight**
+    # we assume that every date is intended to have an accompanying bodyweight!
     start = None
     count_unwritten_cells = 0
     for t in range(1, 1000000):
@@ -178,11 +179,6 @@ def do_bodyweights_fill_all_vacancies(bodyweights_lst, row_range):
     # number of provided bodyweights. Skip first value
     count_provided = len(bodyweights_lst) - 1
 
-    # print(f'DEBUG: count_provided {count_provided}')
-    # print(f'DEBUG: count_required {count_required}')
-    # print(f'DEBUG: bodyweights provided:\n{[x for x in bodyweights_lst]}')
-    # exit()
-
     if count_provided < count_required:
         print(f"Too few values provided. Needed {count_required}, provided with {count_provided}")
         return False
@@ -202,35 +198,15 @@ def write_to_file(wb, sheet, bodyweights_lst, start_row):
     for bw in bodyweights_lst[1:]:
         if sheet.cell(row=start_row, column=p.bodyweight_column).value is None:
             try:
+                # note that we write as float because otherwise Calc (and perhaps Excel)
+                # prepend each value with a "'", to mark it as a string. This causes it
+                # to be left-aligned. The float conversion avoids that
                 sheet.cell(row=start_row, column=p.bodyweight_column).value = float(bw)
             except ValueError:
                 # it's a "?"
                 sheet.cell(row=start_row, column=p.bodyweight_column).value = bw
             start_row += 1
-            # TODO: resolve
-            # for mysterious reasons, every weight gets written with a prepended '
-            # is this an openpyxl bug? .replace("'","") does nothing to fix problem
-            '''
-            says: https://superuser.com/questions/394092/how-to-remove-a-plain-text-protecting-single-quote-from-all-the-selected-cells-i
-            
-            You can remove the leading single quote 
-            (which actually isn't part of the string in the cell) 
-            using a regex-based search and replace:
 
-            Search for all characters between the start and end of the string 
-            ^.*$
-            replace with match 
-            &
-            
-            For some reason, in LibreOffice, "Data" menu -> "Text to columns" also works
-            ...at least after the fact. Idk whether it's preventative.
-            
-            the apostrophe is an indicator that a cell is formatted as numeric/date value
-            and apparently does not change the value of the cell.
-            but it does left adjust it, which is irritating.
-            
-            Did you try sheet.cell("C1").set_explicit_value("value", 's')
-            '''
         else:
             print(f"Cannot write to cell {start_row} - cell already written to!")
             print("No changes have been made")

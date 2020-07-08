@@ -138,19 +138,18 @@ def login_and_return_keep_obj():
 
 
 def retrieve_notes(keep):
-    # first retrieve a list of Note objects
-    # it's good practise to retrieve all at once; a local cache minimizes requests
-    # the effect of latency, and reliance on a potentially unstable internet connection
+    # retrieves a list of not trashed Note objects
     print('Retrieving notes')
-    gnotes = keep.all()
+    # gnotes = keep.all()
+    # gnotes = keep.find(pinned=True, archived=False, trashed=False)
+    gnotes = keep.find(trashed=False)
     if not gnotes:
         raise ValueError('No notes found. Incorrect username or password?')
     return gnotes
 
 
 def target_is_xslx():
-    # returns True if target_path is .xslx
-    # so that write_to_file may choose the appropriate cell to write to
+    # returns True if utilities.target_path variable points to .xslx file
     filename, file_extension = os.path.splitext(target_path)
     if file_extension == '.xlsx':
         return True

@@ -250,6 +250,7 @@ def return_parsed_data(clean_source=p.source_path):
         if "home workout" in line.lower():
             # these leading lines help me in Keep, but clutter the xlsx file, so we do not add them to xlsx
             # "Home workout, upper body A:", "Home workout, upper body B:", "Home workout, lower body + abs:"
+            days_data.append("Home workout: ")
             continue
 
         # non-conventional workouts, like "Some arm and shoulder work.\nEst ?? mins"
