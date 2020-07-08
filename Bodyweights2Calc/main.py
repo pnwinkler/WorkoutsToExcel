@@ -1,7 +1,7 @@
 # retrieves bodyweights from Google Keep, then writes them to the correct date cell in the specified file
 # does intelligent stuff too, like alert the user to missing entries, etc
 # consider creating a version for use by crontab
-# REMEMBER to change params whenever necessary.
+# REMEMBER to change utilities.params whenever necessary.
 
 import openpyxl
 import re
@@ -9,13 +9,9 @@ from datetime import datetime
 import utilities.params as p
 import utilities.utility_functions as uf
 
-
-# todo: make program recognize duplicates?
-# i.e. find the longest continuous string present in both Keep and the xlsx file
-# why?
-# in case there's overlap
-# why does that matter?
-#
+bw_reg = re.compile(r'(\d{2,3}\.\d\s?,)+'
+                    r'|(\d{2,3}\s?,)+'
+                    r'|(\?{1,3}\s?,)+')
 
 
 def main():
@@ -26,67 +22,66 @@ def main():
 
     keep = uf.login_and_return_keep_obj()
     notes = uf.retrieve_notes(keep)
-    bodyweights_lst = find_and_return_bodyweights(notes)
+    bw_note = find_bodyweights_note(notes)
+    # this timestamp lets us know whether we should expect a bodyweight entry for today
+    bw_edit_timestamp = return_bodyweights_note_edit_timestamp(bw_note)
+    bodyweights_lst = return_bodyweights_lst(bw_note)
 
     wb = openpyxl.load_workbook(p.target_path)
     sheet = wb[p.target_sheet]
 
     # return range of rows requiring writes
-    row_range_tpl = return_bw_rows_requiring_write(sheet)
-    print(f'DEBUG: row_range_tpl={row_range_tpl}')
-    print(f'DEBUG: bodyweights_lst={bodyweights_lst}')
+    row_range_tpl = return_bw_rows_requiring_write(sheet, bw_edit_timestamp)
+    # print(f'DEBUG: row_range_tpl={row_range_tpl}')
+    # print(f'DEBUG: bodyweights_lst={bodyweights_lst}')
 
     # confirm that the length of that range matches the number of bodyweights found in the Keep note
     if do_bodyweights_fill_all_vacancies(bodyweights_lst, row_range_tpl):
         uf.backup_targetpath()
-        # writes to, but does not save file
-        print("Writing to file")
-        write_to_file(sheet, bodyweights_lst, row_range_tpl[0])
+        print("Writing bodyweights to file")
+        write_to_file(wb, sheet, bodyweights_lst, row_range_tpl[0])
     else:
         # error messages already handled in condition function above
         exit()
 
-    wb.save(p.target_path)
-
-    # todo: write to file, then remove entries from Keep
-    #   it's not a good idea to remove entries until we're certain that they're written
-    #   so either don't remove them, or find a foolsafe way to make sure they're written
-    print("DEV: entries will not be deleted from note after completion, because program is untested. It may fail")
-    print("DEV: therefore you MUST remove verify that those bodyweights were written, then remove from Keep yourself")
+    trash_original_and_replace(keep, bw_note)
+    print("Finished!")
 
 
-def find_and_return_bodyweights(notes):
+def trash_original_and_replace(keep, bw_note):
+    # Trash original bodyweight note, and replace with a new one-value bodyweights note
+    # items in trash remain available for 7 days.
+    # whereas changes to bw_note would be irreversible
+    new_note_value = return_bodyweights_lst(bw_note)[-1] + ", "
+    keep.createNote('', new_note_value)
+    bw_note.trash()
+    keep.sync()
+    # print("Synchronizing")
+    # import time
+    # time.sleep(2)
+
+
+def find_bodyweights_note(notes):
     """
-    Within "notes", find the bodyweights note and return its modified contents
+    Within "notes", find the bodyweights note and return it
     :param notes: the Keep notes object (which contains all notes)
-    :return: a list of integers
+    :return: the note containing bodyweights
     """
-
-    # we expect formats like these 3 below:
+    # we expect bodyweight note's format to resemble formats like these 3 below:
     # 83.2, 83, 83.4,
     # 101,
     # 100.4, 100.9, 99.8,
     # i.e. 2-3 digits with optional decimal place followed by a comma
     # spaces are optional. Commas are not. Each number must be followed by one comma
-    bw_reg = re.compile(r'(\d{2,3}\.\d\s?,)+'
-                        r'|(\d{2,3}\s?,)+'
-                        r'|(\?{1,3}\s?,)+')
-
     for gnote in notes:
         # match either title or body. It's user preference where the weights will be
         for x in [gnote.title, gnote.text]:
             if not x.replace(",", "").replace(" ", "").replace(".", "").replace("?", "").isdigit():
                 continue
             else:
-                bodyweights = ["".join(m) for m in re.findall(bw_reg, x)]
-                bodyweights = [t[:-1] for t in bodyweights]
-                # This changes findall's output from this kind:
-                # [('', '81,'), ('', '85,'), ('', '102,'), ('102.1,', '')]
-                # to this kind
-                # ['81', '85', '102', '102.1']
-
-                if len(bodyweights) > 1:
-                    return bodyweights
+                # otherwise we might match
+                if gnote.timestamps.trashed is not None:
+                    return gnote
 
     raise ValueError("No matching note found. "
                      "1) Does your bodyweight note exist? "
@@ -94,24 +89,71 @@ def find_and_return_bodyweights(notes):
                      "3) Does it contain only numbers, spaces, commas and full stops?")
 
 
-def return_bw_rows_requiring_write(sheet):
+def return_bodyweights_note_edit_timestamp(bw_note):
     """
-    Return which rows should contain bodyweights but don't
+    :param bw_note: the note containing bodyweights
+    :return: datetime object in form '%Y-%m-%dT%H:%M:%S.%fZ
+    example return value "2020-07-06 11:20:44.428000"
+    """
+    return bw_note.timestamps.edited
+
+
+def return_bodyweights_lst(bw_note):
+    bodyweights = []
+    for x in [bw_note.title, bw_note.text]:
+        if len(re.findall(bw_reg, x)) > 0:
+            if len(bodyweights) < 1:
+                bodyweights = ["".join(m) for m in re.findall(bw_reg, x)]
+                bodyweights = [t[:-1] for t in bodyweights]
+                # This changes findall's output from this kind:
+                # [('', '81,'), ('', '85,'), ('', '102,'), ('102.1,', '')]
+                # to this kind
+                # ['81', '85', '102', '102.1']
+            else:
+                print("ERROR: Bodyweights found in both title and text of note")
+                print("Please tidy up note, such that *either* the note's title *or*", end=' ')
+                print("the note's text contain ALL of the bodyweights, and the counterpart is empty")
+                exit()
+
+    if len(bodyweights) > 1:
+        return bodyweights
+
+    else:
+        print(f"Debug: Note.title='{bw_note.title}'; Note.text='{bw_note.text}'")
+        print("INFO: only 1 bodyweight found in Keep note. There is nothing new to write")
+        print("exiting")
+        exit()
+
+
+def return_bw_rows_requiring_write(sheet, bw_edit_timestamp):
+    """
+    Return which rows should contain bodyweights but don't (according to the note's edit timestamp)
     :param sheet: sheet in xlsx file containing bodyweights and dates
+    :param bw_edit_timestamp: datetime object in form '%Y-%m-%dT%H:%M:%S.%fZ
     :return: tuple of length 2, containing start and end rows
     """
+    # inform the user if their bodyweights note was not edited today.
+    # so that they don't wonder why the program won't write a value for today
+    # (It's user error, not program error)
+    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    # for mysterious reasons, datetime.today() doesn't actually get TODAY, it gets RIGHT NOW.
+    # so using .now() or .today() is a moot distinction. The .replace is still needed
+
+    if bw_edit_timestamp < today:
+        print("- You have not edited your bodyweights note today. -")
+        print("- Therefore, no weight will be written for today (you forgot to log it) -")
+        print("- Suggested action: average yesterday's and tomorrow's bodyweights, tomorrow. -")
 
     # keep going down bodyweight column,
     # counting empty bodyweight cells that neighbour a date cell
-    # until date == today.
+    # until date > bw_edit_timestamp.
     # **we assume that every date is intended to have an accompanying bodyweight**
     start = None
     count_unwritten_cells = 0
-
     for t in range(1, 1000000):
         # some rows in this column are strings
         if isinstance(sheet.cell(row=t, column=p.date_column).value, datetime):
-            if sheet.cell(row=t, column=p.date_column).value > datetime.now():
+            if sheet.cell(row=t, column=p.date_column).value > bw_edit_timestamp:
                 return start, start + count_unwritten_cells
         if sheet.cell(row=t, column=p.bodyweight_column).value is None:
             if isinstance(sheet.cell(row=t, column=p.date_column).value, datetime):
@@ -136,6 +178,11 @@ def do_bodyweights_fill_all_vacancies(bodyweights_lst, row_range):
     # number of provided bodyweights. Skip first value
     count_provided = len(bodyweights_lst) - 1
 
+    # print(f'DEBUG: count_provided {count_provided}')
+    # print(f'DEBUG: count_required {count_required}')
+    # print(f'DEBUG: bodyweights provided:\n{[x for x in bodyweights_lst]}')
+    # exit()
+
     if count_provided < count_required:
         print(f"Too few values provided. Needed {count_required}, provided with {count_provided}")
         return False
@@ -145,14 +192,21 @@ def do_bodyweights_fill_all_vacancies(bodyweights_lst, row_range):
     return True
 
 
-def write_to_file(sheet, bodyweights_lst, start_row):
+def write_to_file(wb, sheet, bodyweights_lst, start_row):
     """
     :param sheet: sheet in xlsx file containing bodyweights and dates
     :param bodyweights_lst: list of bodyweights in such a format: ['81', '85', '102', '102.1']
     :param start_row (int)
     """
-    for bw in bodyweights_lst:
+    # remember, we ignore the first value. It's just there for us to recognize the bodyweights note
+    for bw in bodyweights_lst[1:]:
         if sheet.cell(row=start_row, column=p.bodyweight_column).value is None:
+            try:
+                sheet.cell(row=start_row, column=p.bodyweight_column).value = float(bw)
+            except ValueError:
+                # it's a "?"
+                sheet.cell(row=start_row, column=p.bodyweight_column).value = bw
+            start_row += 1
             # TODO: resolve
             # for mysterious reasons, every weight gets written with a prepended '
             # is this an openpyxl bug? .replace("'","") does nothing to fix problem
@@ -177,12 +231,11 @@ def write_to_file(sheet, bodyweights_lst, start_row):
             
             Did you try sheet.cell("C1").set_explicit_value("value", 's')
             '''
-            sheet.cell(row=start_row, column=p.bodyweight_column).value = bw
-            start_row += 1
         else:
             print(f"Cannot write to cell {start_row} - cell already written to!")
             print("No changes have been made")
             exit()
+    wb.save(p.target_path)
 
 
 if __name__ == '__main__':
