@@ -7,7 +7,7 @@
 
 import openpyxl
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 import utilities.params as p
 import utilities.utility_functions as uf
 
@@ -36,6 +36,9 @@ def main():
     row_range_tpl = return_bw_rows_requiring_write(sheet, bw_edit_timestamp)
     # print(f'DEBUG: row_range_tpl={row_range_tpl}')
     # print(f'DEBUG: bodyweights_lst={bodyweights_lst}')
+    if row_range_tpl == -1:
+        # user forgot to log bodyweight today
+        exit()
 
     # confirm that the length of that range matches the number of bodyweights found in the Keep note
     if do_bodyweights_fill_all_vacancies(bodyweights_lst, row_range_tpl):
@@ -44,6 +47,7 @@ def main():
         write_to_file(wb, sheet, bodyweights_lst, row_range_tpl[0])
     else:
         # error messages already handled in condition function above
+        print("Program exiting")
         exit()
 
     trash_original_and_replace(keep, bw_note)
@@ -136,14 +140,23 @@ def return_bw_rows_requiring_write(sheet, bw_edit_timestamp):
     :return: tuple of length 2, containing start and end rows
     """
     today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # if user runs program between midnight and 5 am
+    # then don't expect an edit *today*, in block below.
+    if datetime.now().hour < 5:
+        from datetime import timedelta
+        today -= timedelta(days=1)
+
     # for mysterious reasons, datetime.today() doesn't actually get TODAY, it gets RIGHT NOW.
     # so using .now() or .today() is a moot distinction. The .replace is needed regardless
-
+    # TODO: fix this, so it doesn't fuck up if run at midnight
     if bw_edit_timestamp < today:
         print("- You have not edited your bodyweights note today. -")
         print("- Therefore, no weight will be written for today (you forgot to log it) -")
         print("- Suggested action: average yesterday's and tomorrow's bodyweights, tomorrow. -")
-        print("(the program will now run as normal)")
+        print(f"debug: bodyweight edit timestamp \t{bw_edit_timestamp}")
+        print(f"debug: today timestamp \t\t{today}")
+        return -1
 
     # descend bodyweight column,
     # counting empty cells that neighbour a date cell
