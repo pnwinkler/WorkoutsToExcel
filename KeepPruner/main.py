@@ -208,9 +208,25 @@ def main():
     wb = openpyxl.load_workbook(p.target_path)
     sheet = wb[p.target_sheet]
 
+    # precaution against loss of data from mis-titled notes.
+    note_date_counter = []
+    unique_note_dates = set()
     for note in notes:
         if is_deletion_candidate(sheet, note, end_date):
             deletion_candidates.append(note)
+            # catch identical dates
+            note_date_counter.append(note.title)
+            unique_note_dates.add(note.title)
+
+    if len(note_date_counter) != len(unique_note_dates):
+        for date in note_date_counter:
+            if note_date_counter.count(date) > 1:
+                offender = date
+        raise ValueError("Two workout notes with the same date have been found. "
+                         "Given that each date may have only 1 workout written to it, "
+                         "deletion would result in loss of unwritten data. "
+                         "Please either correct the date of one, or concatenate them into one note.\n"
+                         f"Offender = {offender}")
 
     present_deletion_candidates(deletion_candidates)
     if is_deletion_requested():

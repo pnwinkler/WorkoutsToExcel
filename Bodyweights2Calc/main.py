@@ -139,6 +139,9 @@ def return_bw_rows_requiring_write(sheet, bw_edit_timestamp):
     :param bw_edit_timestamp: datetime object in form '%Y-%m-%dT%H:%M:%S.%fZ
     :return: tuple of length 2, containing start and end rows
     """
+
+    # for mysterious reasons, datetime.today() doesn't actually get TODAY, it gets RIGHT NOW.
+    # so using .now() or .today() is a moot distinction. The .replace is needed regardless
     today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
     # if user runs program between midnight and 5 am
@@ -147,9 +150,6 @@ def return_bw_rows_requiring_write(sheet, bw_edit_timestamp):
         from datetime import timedelta
         today -= timedelta(days=1)
 
-    # for mysterious reasons, datetime.today() doesn't actually get TODAY, it gets RIGHT NOW.
-    # so using .now() or .today() is a moot distinction. The .replace is needed regardless
-    # TODO: fix this, so it doesn't fuck up if run at midnight
     if bw_edit_timestamp < today:
         print("- You have not edited your bodyweights note today. -")
         print("- Therefore, no weight will be written for today (you forgot to log it) -")

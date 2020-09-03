@@ -115,19 +115,15 @@ def write_workouts_to_xlsx(parsed_data, backup=True):
             # exercise would be in the future, so we assume it's from last year
             exercise_datetime = exercise_datetime.replace(year=now.year - 1)
 
-        celldata_to_write = tpl[1]
-        # Monday	30/12/19	86.3		Some arm and shoulder work.. Est ?? mins
-        # this processing shouldn't be done here (for consistency's sake)
-        celldata_to_write.replace('..', '.')
-
         r = uf.find_xlsx_datecell(sheet, exercise_datetime, p.date_column)
         if r == -1:
             print(f'Error: write_workouts_to_xlsx failed to write workout for date {print_friendly_datetime}')
             # add the date but not the hour, minute, second values
-            # NOTE: this slice may be inappropriate
+            # NOTE: this slice is not tested
             NOT_WRITEABLE.append(str(exercise_datetime)[:10])
             continue
         else:
+            celldata_to_write = tpl[1]
             if not sheet.cell(row=r, column=p.workout_column).value:
                 print(f'match FOUND. Writing {exercise_datetime} workout to cell in row {r}')
                 sheet.cell(row=r, column=p.workout_column).value = celldata_to_write
@@ -143,6 +139,8 @@ def write_workouts_to_xlsx(parsed_data, backup=True):
                 print('Perhaps it\'s just a different format or a one-character difference')
                 print("INTENDED WRITE:\n", celldata_to_write)
                 print("EXISTING VALUE:\n", sheet.cell(row=r, column=p.workout_column).value)
+                print("Please verify that you do not have 2 workouts with the same date in Keep")
+                print("Do not run KeepPruner before doing so.")
 
     wb.save(p.target_path)
 
@@ -216,6 +214,7 @@ def is_dateline(line):
 def return_parsed_data(clean_source=p.source_path):
     # from CLEAN source file, extracts workouts and parses them
     # (clean means that there's only workout data in there, nothing extraneous).
+    # cleaning is done by Keep2Calc.retrieve_data_from_gkeep
     # returns parsed_data , a list of tuples
     # in each tuple[0] is the date, which lets us know where to write
     # in each tuple[1] is a string containing a formatted workout
@@ -295,18 +294,17 @@ def return_parsed_data(clean_source=p.source_path):
             # (accidental double spaces do happen)
             # then append as tuple, where tpl[0] is the date, and tpl[1] the workout string
             parsed_data.append(
-                (days_data[0], ''.join(days_data[1:]).replace('  ', ' ').replace(' .', '.')))
+                (days_data[0], ''.join(days_data[1:]).replace('  ', ' ').replace(' .', '.').replace('..', '.')))
             days_data = []
 
     return parsed_data
 
 
-def strip_num_x_nums(prelim_parse):
-    # called by parse_it
-    # takes parse_it's partial parse as a list
+def strip_num_x_nums(prelim_parse: str) -> str:
+    # called by return_parsed_data(...) on each not-empty line in source workout.
     # removes instructions, kilogram range, set and rep counts
-    # returns the result as a list
-    # mostly legacy. Hardly used any more
+    # mostly legacy. I recommend putting instructions on separate comment "/" lines
+    # however, another user may prefer a different format, as permitted by this function.
 
     # regex to match: 4x7 , 3x5 , 5x6 min , 7x4+, 2x10-12 etc
     set_x_rep_reg = re.compile(r','
@@ -358,7 +356,36 @@ def strip_num_x_nums(prelim_parse):
     return parsed
 
 
+def is_commentline(line):
+    # comments exclusively begin with '/' or '('
+    # examples include '/Exhausting' , '(75kg:8,8,8 / 8,8,7)' , '/4x8 is a grinder'
+    # intentionally doesn't catch newlines, because they are handled differently
+    if line.startswith('/'):
+        return True
+    if line.startswith('('):
+        return True
+    return False
+
+
+# if __name__ == '__main__':
+#     initial_checks()
+#     main()
+
+
+# def write_clean_data(clean_write_path, clean_data_matrix):
+#     # can't write a list, so we convert clean_data_matrix to a string
+#     # this was intended for testing writes to txt file. May no longer have use
+#     mega_string = ''
+#     for lst in clean_data_matrix:
+#         mega_string += '\n' + ''.join(lst)
+#
+#     with open(clean_write_path, 'w') as f:
+#         f.write(mega_string)
+
+
+'''
 def delete_old_data():
+    # deprecated
     # removes one workout from source_path
     # if source_path is small enough, deletes the file
 
@@ -396,29 +423,4 @@ def delete_old_data():
         os.remove(p.source_path)
     else:
         pass
-
-
-def is_commentline(line):
-    # comments exclusively begin with '/' or '('
-    # examples include '/Exhausting' , '(75kg:8,8,8 / 8,8,7)' , '/4x8 is a grinder'
-    # intentionally doesn't catch newlines, because they are handled differently
-    if line.startswith('/'):
-        return True
-    if line.startswith('('):
-        return True
-    return False
-
-# if __name__ == '__main__':
-#     initial_checks()
-#     main()
-
-
-# def write_clean_data(clean_write_path, clean_data_matrix):
-#     # can't write a list, so we convert clean_data_matrix to a string
-#     # this was intended for testing writes to txt file. May no longer have use
-#     mega_string = ''
-#     for lst in clean_data_matrix:
-#         mega_string += '\n' + ''.join(lst)
-#
-#     with open(clean_write_path, 'w') as f:
-#         f.write(mega_string)
+'''
