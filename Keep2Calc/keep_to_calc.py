@@ -57,6 +57,24 @@ def return_clean_data_matrix(source=p.source_path):
         # 3) we append the complete workout in days_data to lines_to_write_matrix
         # 4) once all lines are read, we return lines_to_write_matrix
 
+        # REMINDER: if you get weird results, like multiple non-workout notes being
+        # erroneously recognized as a workout make sure that you do not have 2
+        # workout entries for that date, e.g. 23 July 2019 and 23 July 2020.
+        # In my case the 3 notes below were concatenated into one line.
+        #
+        # 11 August
+        # 2/10 left knee pain
+        # The food medic
+        #
+        # Fire PIN + engineer's cellphone number
+        # PIN \d\d\d\d
+        # Name tel-number
+        #
+        # 23 July, off day
+        # Treadmill (...)
+        # 3 sets neck extensions, ...
+        # Est ?? mins
+
         if not start_appending:
             if is_dateline(line):
                 # stage 1)
@@ -177,6 +195,9 @@ def is_date(string, fuzzy=False):
     :param fuzzy: bool, ignore unknown tokens in string if True
     """
     try:
+        # this is too liberal. For:
+        # 'July 23, day 3'
+        # it returns datetime.datetime(2003, 7, 23, 0, 0)
         parse(string, fuzzy=fuzzy)
         # return True
 
@@ -186,6 +207,7 @@ def is_date(string, fuzzy=False):
 
         # for our purposes, a string must contain digits
         # so we reject strings like "September" as being datelines
+        # but accept "September 15" or "2 January"
         for c in string:
             if c.isdigit():
                 return True
@@ -205,9 +227,12 @@ def is_dateline(line):
         return True
 
     # line not recognizable. Perhaps ', day 3' prevents it from being recognized as a date
+    # or ", off day"
     else:
-        day_x_reg = re.compile(r', day \d')
-        line = re.sub(day_x_reg, '', line)
+        if ',' in line:
+            line = line[:line.index(',')]
+        # day_x_reg = re.compile(r'(,? day \d)|(,? off day)')
+        # line = re.sub(day_x_reg, '', line)
         return is_date(line)
 
 
@@ -255,6 +280,8 @@ def return_parsed_data(clean_source=p.source_path):
         # non-conventional workouts, like "Some arm and shoulder work.\nEst ?? mins"
         # can result in double full stops.
         line = line.replace('..', '.')
+        # user might add a semi-colon to an exercise line.
+        line = line.replace(';', '.')
         # gym workout exercises are always capitalized, but home workouts may not be
         # we want consistency across workout types, so each exercise is capitalized.
         if len(line) > 3 and line.startswith(' '):
@@ -285,6 +312,7 @@ def return_parsed_data(clean_source=p.source_path):
             # largely historical. Was intended for datelines like "01 Jan, day 2"
             # where day 2 would be the 2nd workout of the week
             days_data[0] = re.sub(re.compile(r', day \d'), '', days_data[0])
+            days_data[0] = re.sub(re.compile('(,)? off day'), '', days_data[0])
             days_data[0] = days_data[0].replace(';', '')
 
             # remove a trailing space from date

@@ -1,7 +1,8 @@
 # todo: delete source on desktop after successful program run
 # BEST CALLED VIA COMMAND LINE
-# NOTE: should not be used for workouts more than 1 year old!!
-# it will write them to the wrong cell
+# !!NOTE: should not be used for workouts more than 1 year old!!
+#   you will get bad results.
+#   they may be written to the wrong cell, and noise may be misidentified as workouts.
 # this is a limitation of the format for the title of each gkeep note
 # "24 October" for example does not specify a year
 
@@ -69,4 +70,6 @@ strings_to_write_lst = ktc.return_parsed_data(p.source_path)
 # write it to target file
 ktc.write_workouts_to_xlsx(strings_to_write_lst, backup=True)
 
+# remove original, 'dirty' file.
+os.remove(p.source_path)
 print("All done!")
