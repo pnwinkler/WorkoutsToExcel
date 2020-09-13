@@ -22,6 +22,17 @@ def main():
     if not uf.targetsheet_exists():
         raise ValueError("Target xlsx does not contain sheet specified in params.py")
 
+    wb = openpyxl.load_workbook(p.target_path)
+    sheet = wb[p.target_sheet]
+
+    # assert that today's value isn't already written
+    # although return_bodyweights_lst(...) already handles this,
+    # I prefer to check the local file than login unnecessarily
+    todays_cell = uf.find_xlsx_datecell(sheet, uf.return_now_as_friendly_datetime())
+    if sheet.cell(todays_cell, p.bodyweight_column):
+        print("Value already written for today. Exiting program")
+        exit()
+
     keep = uf.login_and_return_keep_obj()
     notes = uf.retrieve_notes(keep)
     bw_note = find_bodyweights_note(notes)
@@ -29,8 +40,6 @@ def main():
     bw_edit_timestamp = return_bodyweights_note_edit_timestamp(bw_note)
     bodyweights_lst = return_bodyweights_lst(bw_note)
 
-    wb = openpyxl.load_workbook(p.target_path)
-    sheet = wb[p.target_sheet]
 
     # return range of rows requiring writes
     row_range_tpl = return_bw_rows_requiring_write(sheet, bw_edit_timestamp)

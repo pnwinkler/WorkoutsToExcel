@@ -27,6 +27,9 @@ def backup_targetpath():
         print('Backing up target file')
         shutil.copy(target_path, backup_full_path)
 
+def return_now_as_friendly_datetime():
+    # return datetime.now() in a usable format (that the other programs expect)
+    return datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
 def convert_ddmmyyyy_to_datetime(date_str, verbose=True):
     # take string in form DDMMYYYY and return its datetime equivalent
