@@ -1,0 +1,6 @@
+This program:
+ - checks which notes in Keep have already been written to the local xlsx file
+ - presents an overview of the raw note and its xlsx representation
+ - requests a date to delete up to
+ - requests permission to delete
+ - trashes the presented notes up to that user-specified date. Assuming permission was granted.
