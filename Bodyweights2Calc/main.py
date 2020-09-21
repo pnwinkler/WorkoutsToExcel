@@ -7,9 +7,15 @@
 
 import openpyxl
 import re
-from datetime import datetime, timedelta
+from datetime import datetime
 import utilities.params as p
 import utilities.utility_functions as uf
+
+# this is the "X" most recent commits to the local file
+# this number of bodyweights will remain (bracketed) in the Keep note
+# for user reference.
+# will default to 1 if set to 0. Otherwise, there'd be no bw note left to find next time.
+history_length = 3
 
 bw_reg = re.compile(r'(\d{2,3}\.\d\s?,)+'
                     r'|(\d{2,3}\s?,)+'
@@ -27,9 +33,9 @@ def main():
 
     # assert that today's value isn't already written
     # although return_bodyweights_lst(...) already handles this,
-    # I prefer to check the local file than login unnecessarily
+    # I prefer to check the local file instead of login unnecessarily
     todays_cell = uf.find_xlsx_datecell(sheet, uf.return_now_as_friendly_datetime())
-    if sheet.cell(todays_cell, p.bodyweight_column):
+    if sheet.cell(todays_cell, p.bodyweight_column).value:
         print("Value already written for today. Exiting program")
         exit()
 
@@ -38,8 +44,7 @@ def main():
     bw_note = find_bodyweights_note(notes)
     # this timestamp lets us know whether we should expect a bodyweight entry for today
     bw_edit_timestamp = return_bodyweights_note_edit_timestamp(bw_note)
-    bodyweights_lst = return_bodyweights_lst(bw_note)
-
+    bodyweights_lst = return_bw_lst(bw_note)
 
     # return range of rows requiring writes
     row_range_tpl = return_bw_rows_requiring_write(sheet, bw_edit_timestamp)
@@ -59,22 +64,29 @@ def main():
         print("Program exiting")
         exit()
 
-    trash_original_and_replace(keep, bw_note)
+    trash_original_and_replace(keep, bw_note, bodyweights_lst, history_length)
     print("Finished!")
 
 
-def trash_original_and_replace(keep, bw_note):
-    # Trash original bodyweight note, and replace with a new one-value bodyweights note
+def trash_original_and_replace(keep, bw_note, bodyweights_lst, history_length):
+    # Trash original bodyweight note, and replace with a new bodyweights note
     # items in trash remain available for 7 days.
     # whereas changes to bw_note would be irreversible
     # that's why we create a new note this way.
-    new_note_value = return_bodyweights_lst(bw_note)[-1] + ", "
-    keep.createNote('', new_note_value)
+
+    if history_length == 0:
+        history_length = 1
+
+    history = bodyweights_lst[-history_length:]
+    # turn a list like this: [86.8, 86.3, 86.5, 87.2]
+    # into a string like this: "(86.5, 87.2), ", or this "(87.2), "
+    # history_length determines the number of items in parentheses.
+    history = "(" + ", ".join(history) + "), "
+
+    # no title
+    keep.createNote('', history)
     bw_note.trash()
     keep.sync()
-    # print("Synchronizing")
-    # import time
-    # time.sleep(2)
 
 
 def find_bodyweights_note(notes):
@@ -84,15 +96,19 @@ def find_bodyweights_note(notes):
     :return: the note containing bodyweights
     """
     # we expect bodyweight note's format to resemble formats like these 3 below:
-    # 83.2, 83, 83.4,
+    # 83.2, 83, ?, 83.4,
     # 101,
     # 100.4, 100.9, 99.8,
     # i.e. 2-3 digits with optional decimal place, followed by a comma
     # spaces are optional. Commas are not. Each number must be followed by one comma
     for gnote in notes:
-        # match either title or body. It's user preference where the weights will be
+        # match either title or body.
         for x in [gnote.title, gnote.text]:
-            if not x.replace(",", "").replace(" ", "").replace(".", "").replace("?", "").isdigit():
+            # parentheses are part of the history / context window.
+            grammar = "(),.? "
+            for symbol in grammar:
+                x = x.replace(symbol, '')
+            if not x.isdigit():
                 continue
             else:
                 # by default, trashed notes are also searched.
@@ -114,9 +130,22 @@ def return_bodyweights_note_edit_timestamp(bw_note):
     return bw_note.timestamps.edited
 
 
-def return_bodyweights_lst(bw_note):
+def return_bw_lst(bw_note):
+    # takes bodyweights note, and returns a list of bodyweights
+    # that were found outside of parentheses (outside of history)
+
     bodyweights = []
     for x in [bw_note.title, bw_note.text]:
+        if x.count("(") != x.count(")"):
+            print("ERROR: mismatched parentheses in bodyweights")
+            exit()
+        if x.count("(") == 1:
+            # remove context window, to find bodyweights below
+            # +3 to remove "), " following context window
+            ind = x.index(")")
+            ind += 3
+            x = x[ind:]
+
         if len(re.findall(bw_reg, x)) > 0:
             if len(bodyweights) < 1:
                 bodyweights = ["".join(m) for m in re.findall(bw_reg, x)]
@@ -212,6 +241,7 @@ def do_bodyweights_fill_all_vacancies(bodyweights_lst, row_range):
 
 def write_to_file(wb, sheet, bodyweights_lst, start_row):
     """
+    :param wb: workbook. The xlsx file.
     :param sheet: sheet in xlsx file containing bodyweights and dates
     :param bodyweights_lst: list of bodyweights in such a format: ['81', '85', '102', '102.1']
     :param start_row (int)
