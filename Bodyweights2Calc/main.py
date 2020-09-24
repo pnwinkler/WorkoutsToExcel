@@ -19,7 +19,17 @@ history_length = 3
 
 bw_reg = re.compile(r'(\d{2,3}\.\d\s?,)+'
                     r'|(\d{2,3}\s?,)+'
-                    r'|(\?{1,3}\s?,)+')
+                    r'|(\?{1,3}\s?,)+') # match 1-3 literal '?' then comma
+
+# this regex works - it lets the user forget the final comma
+# but it also makes titles like "September 25" match. BAD!
+# it entails too much headache/bloat just to cope with user error.
+# I'm keeping this in case I change my mind.
+# bw_reg = re.compile(r'(\d{2,3}\.\d\s?,)+'
+#                     r'|(\d{2,3}\s?,)+'
+#                     r'|(\?{1,3}\s?,)+'
+#                     r'|(\d{2,3}\.\d$)' # number WITHOUT comma at end of line
+#                     r'|(\d{2,3}$)') # number WITHOUT comma at end of line
 
 
 def main():
@@ -32,7 +42,7 @@ def main():
     sheet = wb[p.target_sheet]
 
     # assert that today's value isn't already written
-    # although return_bodyweights_lst(...) already handles this,
+    # even though return_bodyweights_lst(...) already handles this,
     # I prefer to check the local file instead of login unnecessarily
     todays_cell = uf.find_xlsx_datecell(sheet, uf.return_now_as_friendly_datetime())
     if sheet.cell(todays_cell, p.bodyweight_column).value:
@@ -48,8 +58,6 @@ def main():
 
     # return range of rows requiring writes
     row_range_tpl = return_bw_rows_requiring_write(sheet, bw_edit_timestamp)
-    # print(f'DEBUG: row_range_tpl={row_range_tpl}')
-    # print(f'DEBUG: bodyweights_lst={bodyweights_lst}')
     if row_range_tpl == -1:
         # user forgot to log bodyweight today
         exit()
@@ -64,29 +72,49 @@ def main():
         print("Program exiting")
         exit()
 
-    trash_original_and_replace(keep, bw_note, bodyweights_lst, history_length)
+    history = return_history(bw_note, history_length)
+    trash_original_and_replace(keep, bw_note, history)
     print("Finished!")
 
 
-def trash_original_and_replace(keep, bw_note, bodyweights_lst, history_length):
+def return_history(bw_note, history_length) -> str:
+    # given the note containing bodyweights, create & return a history
+    # "history" is a parenthesized string containing a number of bodyweights
+    # as specified by history_length
+    bw_str = bw_note.text.replace('(', '').replace(')', '')
+    all_bws_lst = bw_str.split(',')  # [83, 82.8, 83.5, ' ']
+    try:
+        all_bws_lst.remove(' ')
+    except ValueError:
+        pass
+
+    if history_length == 0:
+        history_length = 1
+
+    # note that history captures leading spaces, like so:
+    # ['82.3', ' 84.5', ' ?', ' 85']
+    history = all_bws_lst[-history_length:]
+    for ind, h in enumerate(history):
+        history[ind] = history[ind].replace(' ','')
+
+    history = "(" + ", ".join(history) + "), "
+    return history
+
+
+def trash_original_and_replace(keep, bw_note, history):
     # Trash original bodyweight note, and replace with a new bodyweights note
     # items in trash remain available for 7 days.
     # whereas changes to bw_note would be irreversible
     # that's why we create a new note this way.
 
-    if history_length == 0:
-        history_length = 1
-
-    history = bodyweights_lst[-history_length:]
-    # turn a list like this: [86.8, 86.3, 86.5, 87.2]
-    # into a string like this: "(86.5, 87.2), ", or this "(87.2), "
-    # history_length determines the number of items in parentheses.
-    history = "(" + ", ".join(history) + "), "
-
     # no title
     keep.createNote('', history)
     bw_note.trash()
     keep.sync()
+    print("Synchronizing")
+    # without the pause sometimes sync doesn't complete
+    import time
+    time.sleep(2)
 
 
 def find_bodyweights_note(notes):
@@ -105,6 +133,10 @@ def find_bodyweights_note(notes):
         # match either title or body.
         for x in [gnote.title, gnote.text]:
             # parentheses are part of the history / context window.
+            if x.isdigit() and len(x) > 3:
+                # it's probably a PIN
+                continue
+
             grammar = "(),.? "
             for symbol in grammar:
                 x = x.replace(symbol, '')
@@ -140,32 +172,30 @@ def return_bw_lst(bw_note):
             print("ERROR: mismatched parentheses in bodyweights")
             exit()
         if x.count("(") == 1:
-            # remove context window, to find bodyweights below
-            # +3 to remove "), " following context window
-            ind = x.index(")")
-            ind += 3
-            x = x[ind:]
+            # remove context window, to find uncommitted bodyweights
+            # changes "(82.3, 84.5), ?, 85" to " ?, 85"
+            x = x.split("),")[1]
 
         if len(re.findall(bw_reg, x)) > 0:
-            if len(bodyweights) < 1:
-                bodyweights = ["".join(m) for m in re.findall(bw_reg, x)]
-                bodyweights = [t[:-1] for t in bodyweights]
-                # This changes findall's output from this kind:
+            if len(bodyweights) == 0:
+                # change findall's output from this kind:
                 # [('', '81,'), ('', '85,'), ('', '102,'), ('102.1,', '')]
                 # to this kind
                 # ['81', '85', '102', '102.1']
+                bodyweights = ["".join(m) for m in re.findall(bw_reg, x)]
+                bodyweights = [t[:-1] if t[-1]=="," else t for t in bodyweights]
             else:
                 print("ERROR: Bodyweights found in both title and text of note")
                 print("Please tidy up note, such that *either* the note's title *or*", end=' ')
                 print("the note's text contain ALL of the bodyweights, and the counterpart is empty")
                 exit()
 
-    if len(bodyweights) > 1:
+    if len(bodyweights) > 0:
         return bodyweights
 
     else:
         print(f"Debug: Note.title='{bw_note.title}'; Note.text='{bw_note.text}'")
-        print("INFO: only 1 bodyweight found in Keep note. There is nothing new to write")
+        print("INFO: no bodyweights found in Keep note. There is nothing new to write")
         print("exiting")
         exit()
 
@@ -227,8 +257,7 @@ def do_bodyweights_fill_all_vacancies(bodyweights_lst, row_range):
 
     # number of empty cells. 1+ makes it inclusive
     count_required = 1 + row_range[1] - row_range[0]
-    # number of provided bodyweights. Skip first value
-    count_provided = len(bodyweights_lst) - 1
+    count_provided = len(bodyweights_lst)
 
     if count_provided < count_required:
         print(f"Too few values provided. Needed {count_required}, provided with {count_provided}")
@@ -246,12 +275,11 @@ def write_to_file(wb, sheet, bodyweights_lst, start_row):
     :param bodyweights_lst: list of bodyweights in such a format: ['81', '85', '102', '102.1']
     :param start_row (int)
     """
-    # remember, we ignore the first value. It's just there for us to recognize the bodyweights note
-    for bw in bodyweights_lst[1:]:
+    for bw in bodyweights_lst:
         if sheet.cell(row=start_row, column=p.bodyweight_column).value is None:
             try:
-                # note that we write as float because otherwise Calc (and perhaps Excel)
-                # prepend each value with a "'", to mark it as a string. This causes it
+                # we write as float because otherwise Calc (and perhaps Excel)
+                # prepend each value with a "'", to mark it as a string, causing it
                 # to be left-aligned. The float conversion avoids that
                 sheet.cell(row=start_row, column=p.bodyweight_column).value = float(bw)
             except ValueError:
