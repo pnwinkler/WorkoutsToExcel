@@ -23,7 +23,7 @@ def is_deletion_candidate(sheet, note, end_date):
     # takes "note", a Note object *copied from* Keep (not the actual online object)
     # takes "end_date" as a datetime object indicating the last date we may delete up to (inclusive)
     # deletion criteria are:
-    # 1) date of note is less than end_date
+    # 1) date of note >= end_date
     # 2) note is a workout or cardio note
     # 3) note is already written to the food eaten diet xlsx file
     # 4) note is written to the correct date in xlsx file
@@ -38,10 +38,12 @@ def is_deletion_candidate(sheet, note, end_date):
         return False
 
     note_date = note.title + str(datetime.now().year)
-    # this function both converts, and ensures that note_date is not set to a future date
+    # this function converts the string to datetime,
+    # and ensures that note_date is not set to a future date
     note_date = uf.convert_ddmmyyyy_to_datetime(note_date, verbose=False)
 
     if note_date == -1:
+        # failed to convert. note_date is bad format.
         return False
 
     if note_date >= end_date:
@@ -93,8 +95,7 @@ def get_printable_note_date(note):
     else:
         date = split[1] + split[0]
 
-    # date should be like '13 Jan' or '07 Mar'
-    # it's legible, and makes presenting deletion candidates simple (in terms of formatting)
+    # abbreviate date, to something like '13 Jan' or '07 Mar'
     date = date[:2] + ' ' + date[2:5]
     return date
 
@@ -113,23 +114,23 @@ def present_deletion_candidates(deletion_candidates):
     '''
     snippet_length = 30
     print("\n**DELETION CANDIDATES**")
-    header = 'Date\tNote snippet\t\t\tExists in xlsx as...'
+    header = 'Date\tNote snippet\t\t\t\t\t\tExists in xlsx as...'
     print(header)
 
     for note in deletion_candidates:
         # comment lines don't appear in the xlsx file, so they're unhelpful for side-by-side comparison
         note_snippet = return_note_text_minus_comments(note).replace('\n', ' ')
         if len(note_snippet) < (snippet_length):
-            # This makes even short lines fit into neat columns
+            # This makes short lines fit into neat columns
             # 20 is an arbitrary number.
             note_snippet += ' ' * 20
         note_snippet = note_snippet[:snippet_length]
 
         print(get_printable_note_date(note), end='')
         print('\t' + note_snippet, end='')
-        # give snippet from xlsx matching date of note, limited in length by snippet_length
-        # +1 to xlsx snippet length because it ";" separates exercises. By adding +1, the 2 kinds of snippet
-        # appear to more frequently terminate on the same character.
+        # give snippet from xlsx matching date of note
+        # +1 to xlsx snippet length because the xlsx format separates exercises with ";"
+        # By adding +1, the 2 kinds of snippet more frequently terminate on the same character.
         print('\t' + date_xlsx_snippet_dict[get_printable_note_date(note)][:snippet_length + 1].rstrip() + '...')
 
     print()
@@ -145,7 +146,8 @@ def is_deletion_requested():
 
 def greet():
     greeting = '\n\t\t\t GKEEP NOTE DELETER \n' + \
-               '\tdeletes workout notes from a google keep account up to a given date\n'
+               '\tdeletes workout notes from a google keep account up to a given date\n' \
+               '\t*provided they are already written to file*\n'
     print(greeting)
 
 
@@ -159,25 +161,24 @@ def request_end_date():
             print('Please enter a valid date')
             end_date = input('>').replace(' ', '')
         # set correct stuff and break
-        tar_date = end_date + str(today.year)
+        target_date = end_date + str(today.year)
         try:
-            tar_date = datetime.strptime(tar_date, '%d%m%Y')
+            target_date = datetime.strptime(target_date, '%d%m%Y')
         except ValueError as e:
             print("Error:", e)
             print("Unable to parse given date")
             continue
-        if tar_date > datetime.now():
-            tar_date -= timedelta(days=365)
-        print(datetime.strftime(tar_date, '%d/%m/%Y'))
+        if target_date > datetime.now():
+            target_date -= timedelta(days=365)
+        print(datetime.strftime(target_date, '%d/%m/%Y'))
 
         response = input('>Is this date correct? (Y/n)').lower()
         if response == 'y':
-            return tar_date
+            return target_date
 
 
 def return_note_text_minus_comments(note):
     # given a note, return its text as a string, with comment lines omitted
-    # the returned string includes newlines, roughly as were present originally
     retstr = ''
     for line in note.text.split('\n'):
         line = line.lstrip().replace('\n', '')
@@ -187,14 +188,14 @@ def return_note_text_minus_comments(note):
             continue
         else:
             if len(line) > 3:
-                # remove "+" because they're not relevant to comparison in present_deletion_candidates
-                retstr += line.replace('+ ', '').replace('+', '') + '\n'
+                # remove "+" because it's not relevant for comparisons in present_deletion_candidates(...)
+                retstr += line.replace('+ ', '').replace('+', '') + ' '
 
     return retstr
 
 
 def main():
-    if not uf.target_is_xslx():
+    if not uf.target_path_is_xslx():
         raise ValueError("target_path in utilities.parameters incorrectly set. It does not point to an xlsx file")
     if not uf.targetsheet_exists():
         raise ValueError("target_sheet in utilities.parameters incorrectly set. Sheet not found in xlsx file")
@@ -209,12 +210,12 @@ def main():
     sheet = wb[p.target_sheet]
 
     # precaution against loss of data from mis-titled notes.
+    # compare the list of note dates to the set of note dates, to catch duplicates (user error)
     note_date_counter = []
     unique_note_dates = set()
     for note in notes:
         if is_deletion_candidate(sheet, note, end_date):
             deletion_candidates.append(note)
-            # catch identical dates
             note_date_counter.append(note.title)
             unique_note_dates.add(note.title)
 
@@ -238,7 +239,6 @@ def main():
         certain = input("Press 'C' to confirm deletion. Any other key to undo: ").lower()
         if certain != 'c':
             for note in deletion_candidates:
-                # trash() is reversible. delete() is not. Trashed notes will be deleted in 7 days.
                 note.untrash()
         keep.sync()
     else:

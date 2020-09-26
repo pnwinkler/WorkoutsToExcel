@@ -1,4 +1,4 @@
-from keep2calc.keep_to_calc import *
+from Keep2Calc.keep_to_calc import *
 # perhaps tests is reserved? PyCharm doesn't want to import it
 
 path_to_tests_folder = os.path.join(os.getcwd(), "keep2calc_tests")
@@ -13,15 +13,6 @@ noisy_data_single_workout1_path = os.path.join(path_to_tests_folder, "noisy_data
 
 # def test_accepts_rings_and_treadmill():
 #     pass
-
-
-def test_is_est_xx_mins_line():
-    assert is_est_xx_mins_line('est 45 mins').group() == 'est 45 min'
-    assert is_est_xx_mins_line('Est 102 mins').group() == 'Est 102 min'
-    assert is_est_xx_mins_line('Est 65 mins').group() == 'Est 65 min'
-    assert is_est_xx_mins_line('Est 68 mins').group() == 'Est 68 min'
-
-
 def test_is_dateline():
     assert is_dateline('22 November, day 3') == True
     assert is_dateline('22 November, day 2') == True
@@ -80,16 +71,16 @@ def test_is_commentline():
     assert is_commentline('Assisted pull up -15kg:12,15,6,10;') == False
 
 
-def test_return_clean_data():
-    # copies all non-extraneous workout data from source_path into a matrix
-    # then returns that matrix
-    # we feed it a source path and confirm that it saves all workouts from that source
-    # note that we do NOT check the contents of each workout here (so far)
-
-    # we check length because otherwise we get weird problems with the list contents
-    # being identical, but the commas separating items being invalidly positioned
-    r1 = return_clean_data(multiple_workouts3_path)
-    assert len(r1) == 2
+# def test_return_clean_data():
+#     # copies all non-extraneous workout data from source_path into a matrix
+#     # then returns that matrix
+#     # we feed it a source path and confirm that it saves all workouts from that source
+#     # note that we do NOT check the contents of each workout here (so far)
+#
+#     # we check length because otherwise we get weird problems with the list contents
+#     # being identical, but the commas separating items being invalidly positioned
+#     r1 = return_clean_data(multiple_workouts3_path)
+#     assert len(r1) == 2
 
 
 

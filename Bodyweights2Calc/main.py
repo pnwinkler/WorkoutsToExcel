@@ -15,7 +15,7 @@ import utilities.utility_functions as uf
 # this number of bodyweights will remain (bracketed) in the Keep note
 # for user reference.
 # will default to 1 if set to 0. Otherwise, there'd be no bw note left to find next time.
-history_length = 3
+history_length = 4
 
 bw_reg = re.compile(r'(\d{2,3}\.\d\s?,)+'
                     r'|(\d{2,3}\s?,)+'
@@ -33,7 +33,7 @@ bw_reg = re.compile(r'(\d{2,3}\.\d\s?,)+'
 
 
 def main():
-    if not uf.target_is_xslx():
+    if not uf.target_path_is_xslx():
         raise ValueError("Target path specified in params.py does not point to xlsx file")
     if not uf.targetsheet_exists():
         raise ValueError("Target xlsx does not contain sheet specified in params.py")

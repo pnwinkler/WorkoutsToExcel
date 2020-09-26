@@ -22,7 +22,7 @@ def initial_checks():
     if not os.path.exists(p.target_path):
         print('target path not found')
         exit()
-    if uf.target_is_xslx():
+    if uf.target_path_is_xslx():
         if not uf.targetsheet_exists():
             print('Error: target_sheet not found at {}'.format(p.target_path))
             exit()
