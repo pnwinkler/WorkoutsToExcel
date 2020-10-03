@@ -1,5 +1,7 @@
-A set of tools allowing interaction between Google Keep Notes, and a local xlsx file.
+A set of tools facilitating interactions between Google Keep Notes, and a local xlsx file.
 
 Before using any of these programs, please set paths in utilities/params.py
 
 For instructions on how to use each program, consult their README files. I suggest testing each program before trusting it.
+
+These programs are distributed under GPLv3. They're free software, without warranty.
