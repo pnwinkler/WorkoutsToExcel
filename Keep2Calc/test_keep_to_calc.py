@@ -14,61 +14,61 @@ noisy_data_single_workout1_path = os.path.join(path_to_tests_folder, "noisy_data
 # def test_accepts_rings_and_treadmill():
 #     pass
 def test_is_dateline():
-    assert is_dateline('22 November, day 3') == True
-    assert is_dateline('22 November, day 2') == True
-    assert is_dateline('22 Nov, day 2') == True
-    assert is_dateline('November 22, day 2') == True
-    assert is_dateline('November 22, day 2') == True
+    assert is_dateline('22 November, day 3') 
+    assert is_dateline('22 November, day 2') 
+    assert is_dateline('22 Nov, day 2') 
+    assert is_dateline('November 22, day 2') 
+    assert is_dateline('November 22, day 2') 
 
-    assert is_dateline('1 Apr') == True
-    assert is_dateline('01 Apr') == True
-    assert is_dateline('12 Sep') == True
-    assert is_dateline('15 May') == True
-    assert is_dateline('12 September') == True
-    assert is_dateline('1 september') == True
-    assert is_dateline('2 Jan') == True
-    assert is_dateline('2 jan') == True
-    assert is_dateline('02 Jan') == True
-    assert is_dateline('2 January') == True
-    assert is_dateline('02 January') == True
-    assert is_dateline('02 january') == True
-    assert is_dateline('03 nov') == True
-    assert is_dateline('15 mar') == True
-    assert is_dateline('1 mar') == True
+    assert is_dateline('1 Apr') 
+    assert is_dateline('01 Apr') 
+    assert is_dateline('12 Sep') 
+    assert is_dateline('15 May') 
+    assert is_dateline('12 September') 
+    assert is_dateline('1 september') 
+    assert is_dateline('2 Jan') 
+    assert is_dateline('2 jan') 
+    assert is_dateline('02 Jan') 
+    assert is_dateline('2 January') 
+    assert is_dateline('02 January') 
+    assert is_dateline('02 january') 
+    assert is_dateline('03 nov') 
+    assert is_dateline('15 mar') 
+    assert is_dateline('1 mar') 
 
-    # we reject invalid February dates
-    assert is_dateline('29 February 2019') == False
-    assert is_dateline('29 February 2020') == True
+    # we reject invalid February dates (2020 has no 29th of February)
+    assert is_dateline('29 February 2019') is False
+    assert is_dateline('29 February 2020') 
 
     # we don't test for MON DD format. We don't accept it
 
     # we don't want to match lines with a month but no date
-    assert is_dateline('September') == False
-    assert is_dateline('August') == False
+    assert is_dateline('September') is False
+    assert is_dateline('August') is False
 
-    assert is_dateline('Jan') == False
-    assert is_dateline('jan') == False
-    assert is_dateline('hi') == False
-    assert is_dateline('17') == False
-    assert is_dateline('est 65') == False
-    assert is_dateline('may be') == False
-    assert is_dateline('maybe') == False
+    assert is_dateline('Jan') is False
+    assert is_dateline('jan') is False
+    assert is_dateline('hi') is False
+    assert is_dateline('17') is False
+    assert is_dateline('est 65') is False
+    assert is_dateline('may be') is False
+    assert is_dateline('maybe') is False
 
 
 def test_is_commentline():
-    assert is_commentline('/doot') == True
-    assert is_commentline('(aserfwefwef aowseihj sdfsdf') == True
-    assert is_commentline('/') == True
-    assert is_commentline('(') == True
-    assert is_commentline('(75kg:8,8,8 / 8,8,7)') == True
-    assert is_commentline('/4x8 is a grinder') == True
-    assert is_commentline('/Minor overreach') == True
+    assert is_commentline('/doot') 
+    assert is_commentline('(aserfwefwef aowseihj sdfsdf') 
+    assert is_commentline('/') 
+    assert is_commentline('(') 
+    assert is_commentline('(75kg:8,8,8 / 8,8,7)') 
+    assert is_commentline('/4x8 is a grinder') 
+    assert is_commentline('/Minor overreach') 
 
-    assert is_commentline('hi') == False
-    assert is_commentline('12312') == False
-    assert is_commentline('Squat 90kg: 8,8,8') == False
-    assert is_commentline('Squat 110kg:5,5,5,5') == False
-    assert is_commentline('Assisted pull up -15kg:12,15,6,10;') == False
+    assert is_commentline('hi') is False
+    assert is_commentline('12312') is False
+    assert is_commentline('Squat 90kg: 8,8,8') is False
+    assert is_commentline('Squat 110kg:5,5,5,5') is False
+    assert is_commentline('Assisted pull up -15kg:12,15,6,10;') is False
 
 
 # def test_return_clean_data():
