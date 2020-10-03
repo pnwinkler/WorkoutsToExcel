@@ -210,7 +210,7 @@ def main():
     sheet = wb[p.target_sheet]
 
     # precaution against loss of data from mis-titled notes.
-    # compare the list of note dates to the set of note dates, to catch duplicates (user error)
+    # catch duplicate dates (user error) by comparing the list of note dates to the set of note dates
     note_date_counter = []
     unique_note_dates = set()
     for note in notes:
