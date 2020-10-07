@@ -1,3 +1,4 @@
+# todo: consider writing checks so that if both dd/mm/YYYY and dd/mm/YYYY-1 are found, an error is raised
 import re
 import openpyxl
 import os
@@ -111,6 +112,7 @@ def write_workouts_to_xlsx(parsed_data, backup=True):
 
     # any workouts that failed to write are added to this
     # later printed, to inform the user of workouts that need their attention
+    # has not yet been necessary.
     NOT_WRITEABLE = []
 
     now = datetime.now()
@@ -185,7 +187,25 @@ def is_date_given():
         return False
 
 
+def is_dateline(line):
+    # disregard comments
+    if line.startswith("/") or line.startswith("("):
+        return False
+
+    if is_date(line):
+        # line is in recognizable format
+        return True
+
+    # line not recognizable. Perhaps ', day 3' prevents it from being recognized as a date
+    # or ", off day"
+    else:
+        if ',' in line:
+            line = line[:line.index(',')]
+        return is_date(line)
+
+
 def is_date(string, fuzzy=False):
+    # helper function for is_dateline()
     from dateutil.parser import parse
     """
     # copied from Stackoverflow solution
@@ -217,30 +237,11 @@ def is_date(string, fuzzy=False):
         return False
 
 
-def is_dateline(line):
-    # disregard comments
-    if line.startswith("/") or line.startswith("("):
-        return False
-
-    if is_date(line):
-        # line is in recognizable format
-        return True
-
-    # line not recognizable. Perhaps ', day 3' prevents it from being recognized as a date
-    # or ", off day"
-    else:
-        if ',' in line:
-            line = line[:line.index(',')]
-        # day_x_reg = re.compile(r'(,? day \d)|(,? off day)')
-        # line = re.sub(day_x_reg, '', line)
-        return is_date(line)
-
-
 def return_parsed_data(clean_source=p.source_path):
     # from CLEAN source file, extracts workouts and parses them
     # (clean means that there's only workout data in there, nothing extraneous).
-    # cleaning is done by Keep2Calc.retrieve_data_from_gkeep
-    # returns parsed_data , a list of tuples
+    # cleaning is done by return_clean_data_matrix()
+    # returns a list of tuples. One tuple is one workout.
     # in each tuple[0] is the date, which lets us know where to write
     # in each tuple[1] is a string containing a formatted workout
     # if you want to remove anything from the title, like ", day 2", this is the place
@@ -268,13 +269,20 @@ def return_parsed_data(clean_source=p.source_path):
         # but gym workouts aren't. They should be consistent - each exercise capitalized.
         for ind, c in enumerate(line):
             if c.isalpha():
-                line = line[:ind] + line[ind].upper() + line[ind + 1:]
-                break
+                # we don't capitalize the "x" in "3x25 jabs", for example
+                if not re.search(r'\dx\d\d', line):
+                    line = line[:ind] + line[ind].upper() + line[ind + 1:]
+                    break
 
         if "home workout" in line.lower():
-            # these leading lines help me in Keep, but clutter the xlsx file, so we do not add them to xlsx
+            # we log in the xlsx file only that it's a "Home workout: ", we don't need to mention which day it is
+            # input might look like this...
             # "Home workout, upper body A:", "Home workout, upper body B:", "Home workout, lower body + abs:"
             days_data.append("Home workout: ")
+            continue
+
+        if "shadowboxing" in line.lower():
+            days_data.append("Shadowboxing: ")
             continue
 
         # non-conventional workouts, like "Some arm and shoulder work.\nEst ?? mins"
@@ -314,9 +322,7 @@ def return_parsed_data(clean_source=p.source_path):
             days_data[0] = re.sub(re.compile(r', day \d'), '', days_data[0])
             days_data[0] = re.sub(re.compile('(,)? off day'), '', days_data[0])
             days_data[0] = days_data[0].replace(';', '')
-
-            # remove a trailing space from date
-            days_data[0] = days_data[0][:-1]
+            days_data[0] = days_data[0].rstrip()
 
             # account for user error in workout entry
             # (accidental double spaces do happen)
@@ -329,9 +335,12 @@ def return_parsed_data(clean_source=p.source_path):
 
 
 def strip_num_x_nums(prelim_parse: str) -> str:
+    # legacy. I recommend putting instructions on separate comment "/" lines
+    # given that putting instructions on a separate line is a superior format (it's more legible and intuitive to
+    # separate instructions from exercise lines), this function may eventually be removed
+
     # called by return_parsed_data(...) on each not-empty line in source workout.
     # removes instructions, kilogram range, set and rep counts
-    # mostly legacy. I recommend putting instructions on separate comment "/" lines
     # however, another user may prefer a different format, as permitted by this function.
 
     # regex to match: 4x7 , 3x5 , 5x6 min , 7x4+, 2x10-12 etc
@@ -393,62 +402,3 @@ def is_commentline(line):
     if line.startswith('('):
         return True
     return False
-
-
-# if __name__ == '__main__':
-#     initial_checks()
-#     main()
-
-
-# def write_clean_data(clean_write_path, clean_data_matrix):
-#     # can't write a list, so we convert clean_data_matrix to a string
-#     # this was intended for testing writes to txt file. May no longer have use
-#     mega_string = ''
-#     for lst in clean_data_matrix:
-#         mega_string += '\n' + ''.join(lst)
-#
-#     with open(clean_write_path, 'w') as f:
-#         f.write(mega_string)
-
-
-'''
-def delete_old_data():
-    # deprecated
-    # removes one workout from source_path
-    # if source_path is small enough, deletes the file
-
-    with open(p.source_path, 'r') as f:
-        read_lines = f.readlines()
-
-        # the index up to which everything is deleted
-        deletion_index = ''
-
-        # set deletion_index to that of last_line_workout (and all subsequent comments or newlines)
-        for index, ln in enumerate(read_lines):
-            if uf.is_est_xx_mins_line(ln):
-                try:
-                    deletion_index = index + 1
-                except IndexError:
-                    deletion_index = index
-
-                try:
-                    for i in range(deletion_index, deletion_index + 5):
-                        if read_lines[i] == '\n' or is_commentline(read_lines[i]):
-                            deletion_index = i
-                        if is_dateline(read_lines[i]):
-                            break
-                except IndexError:
-                    pass
-                break
-
-    # overwrite file
-    lines_after_deletion_index = ''.join(read_lines[deletion_index:])
-    with open(p.source_path, 'w+') as f:
-        f.write(lines_after_deletion_index)
-
-    # If less than 150 bytes, delete source_path
-    if os.path.getsize(p.source_path) < 150:
-        os.remove(p.source_path)
-    else:
-        pass
-'''

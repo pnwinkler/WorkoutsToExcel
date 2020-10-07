@@ -1,44 +1,59 @@
 from Keep2Calc.keep_to_calc import *
-# perhaps tests is reserved? PyCharm doesn't want to import it
+from Keep2Calc.keep2calc_tests.tst_solutions import *
 
 path_to_tests_folder = os.path.join(os.getcwd(), "keep2calc_tests")
 single_workout1_path = os.path.join(path_to_tests_folder, "single_workout1")
 single_workout2_path = os.path.join(path_to_tests_folder, "single_workout2")
 single_workout3_path = os.path.join(path_to_tests_folder, "single_workout3")
+single_cardio1_path = os.path.join(path_to_tests_folder, "single_cardio1")
+single_shadowboxing1_path = os.path.join(path_to_tests_folder, "single_shadowboxing1")
 multiple_workouts1_path = os.path.join(path_to_tests_folder, "multiple_workouts1")
 multiple_workouts2_path = os.path.join(path_to_tests_folder, "multiple_workouts2")
 multiple_workouts3_path = os.path.join(path_to_tests_folder, "multiple_workouts3")
 noisy_data_single_workout1_path = os.path.join(path_to_tests_folder, "noisy_data_single_workout1")
 
 
-# def test_accepts_rings_and_treadmill():
-#     pass
+def test_is_commentline():
+    assert is_commentline('/doot')
+    assert is_commentline('(aserfwefwef aowseihj sdfsdf')
+    assert is_commentline('/')
+    assert is_commentline('(')
+    assert is_commentline('(75kg:8,8,8 / 8,8,7)')
+    assert is_commentline('/4x8 is a grinder')
+    assert is_commentline('/Minor overreach')
+
+    assert is_commentline('hi') is False
+    assert is_commentline('12312') is False
+    assert is_commentline('Squat 90kg: 8,8,8') is False
+    assert is_commentline('Squat 110kg:5,5,5,5') is False
+    assert is_commentline('Assisted pull up -15kg:12,15,6,10;') is False
+
+
 def test_is_dateline():
-    assert is_dateline('22 November, day 3') 
-    assert is_dateline('22 November, day 2') 
-    assert is_dateline('22 Nov, day 2') 
-    assert is_dateline('November 22, day 2') 
-    assert is_dateline('November 22, day 2') 
+    assert is_dateline('22 November, day 3')
+    assert is_dateline('22 November, day 2')
+    assert is_dateline('22 Nov, day 2')
+    assert is_dateline('November 22, day 2')
 
-    assert is_dateline('1 Apr') 
-    assert is_dateline('01 Apr') 
-    assert is_dateline('12 Sep') 
-    assert is_dateline('15 May') 
-    assert is_dateline('12 September') 
-    assert is_dateline('1 september') 
-    assert is_dateline('2 Jan') 
-    assert is_dateline('2 jan') 
-    assert is_dateline('02 Jan') 
-    assert is_dateline('2 January') 
-    assert is_dateline('02 January') 
-    assert is_dateline('02 january') 
-    assert is_dateline('03 nov') 
-    assert is_dateline('15 mar') 
-    assert is_dateline('1 mar') 
+    assert is_dateline('1 Apr')
+    assert is_dateline('01 Apr')
+    assert is_dateline('12 Sep')
+    assert is_dateline('15 May')
+    assert is_dateline('12 September')
+    assert is_dateline('1 september')
+    assert is_dateline('2 Jan')
+    assert is_dateline('2 jan')
+    assert is_dateline('02 Jan')
+    assert is_dateline('2 January')
+    assert is_dateline('02 January')
+    assert is_dateline('02 january')
+    assert is_dateline('03 nov')
+    assert is_dateline('15 mar')
+    assert is_dateline('1 mar')
 
-    # we reject invalid February dates (2020 has no 29th of February)
+    # we reject invalid February dates (2019 has no 29th of February)
     assert is_dateline('29 February 2019') is False
-    assert is_dateline('29 February 2020') 
+    assert is_dateline('29 February 2020')
 
     # we don't test for MON DD format. We don't accept it
 
@@ -55,82 +70,93 @@ def test_is_dateline():
     assert is_dateline('maybe') is False
 
 
-def test_is_commentline():
-    assert is_commentline('/doot') 
-    assert is_commentline('(aserfwefwef aowseihj sdfsdf') 
-    assert is_commentline('/') 
-    assert is_commentline('(') 
-    assert is_commentline('(75kg:8,8,8 / 8,8,7)') 
-    assert is_commentline('/4x8 is a grinder') 
-    assert is_commentline('/Minor overreach') 
+def test_return_clean_data_matrix():
+    # reads a file, ignores non-workout data, then returns a
+    # matrix, where each list represents one workout verbatim (as a list of strings)
+    # it does NOT remove comments or newlines or add punctuation.
+    # it only copies each line between a dateline and an est xx mins line (inclusive)
+    # into becomes a string inside a list
 
-    assert is_commentline('hi') is False
-    assert is_commentline('12312') is False
-    assert is_commentline('Squat 90kg: 8,8,8') is False
-    assert is_commentline('Squat 110kg:5,5,5,5') is False
-    assert is_commentline('Assisted pull up -15kg:12,15,6,10;') is False
+    assert len(return_clean_data_matrix(single_workout1_path)) == 1
+    assert return_clean_data_matrix(single_workout1_path)[0][0] == '22 November, day 3\n'
+    # capture comment lines
+    assert return_clean_data_matrix(single_workout1_path)[0][2] == '(75kg: 8,8,8,7,7)\n'
+    assert return_clean_data_matrix(single_workout1_path)[0][13] == '/RPE 9.5\n'
+    # do not copy any line after the est xx mins line
+    assert return_clean_data_matrix(single_workout1_path)[0][-1] == 'Est 65 mins\n'
+
+    assert len(return_clean_data_matrix(single_workout2_path)) == 1
+    assert return_clean_data_matrix(single_workout2_path)[0][0] == '21 November, day 2\n'
+    assert return_clean_data_matrix(single_workout2_path)[0][-1] == 'Est ?? mins\n'
+
+    assert len(return_clean_data_matrix(single_workout3_path)) == 1
+    assert return_clean_data_matrix(single_workout3_path)[0][0] == '24 November, day 4\n'
+    # if there's no line after the est xx mins line, there should be no newline in the est xx mins line
+    assert return_clean_data_matrix(single_workout3_path)[0][-1] == 'Est 91 mins'
+
+    assert len(return_clean_data_matrix(single_cardio1_path)) == 1
+    assert return_clean_data_matrix(single_cardio1_path)[0][0] == '3 October\n'
+    assert return_clean_data_matrix(single_cardio1_path)[0][1] == "Cardio (target heart rate 120-130): 45 mins\n"
+    assert return_clean_data_matrix(single_cardio1_path)[0][-2] == "\n"
+    assert return_clean_data_matrix(single_cardio1_path)[0][-3] == "+ band dislocates\n"
+    assert return_clean_data_matrix(single_cardio1_path)[0][-1] == 'Est 54 mins\n'
+
+    assert len(return_clean_data_matrix(single_shadowboxing1_path)) == 1
+    assert return_clean_data_matrix(single_shadowboxing1_path)[0][0] == '6 October\n'
+    assert return_clean_data_matrix(single_shadowboxing1_path)[0][1] == 'Shadowboxing:\n'
+    assert return_clean_data_matrix(single_shadowboxing1_path)[0][3] == 'front delts\n'
+    assert return_clean_data_matrix(single_shadowboxing1_path)[0][13] == '3x25 jabs\n'
+    assert return_clean_data_matrix(single_shadowboxing1_path)[0][-1] == 'Est 27 mins\n'
+
+    assert len(return_clean_data_matrix(multiple_workouts1_path)) == 3
+    assert return_clean_data_matrix(multiple_workouts1_path)[0][0] == '22 November, day 3\n'
+    assert return_clean_data_matrix(multiple_workouts1_path)[0][-1] == 'Est 65 mins\n'
+    # doesn't care about date order of workouts. Still copies verbatim.
+    assert return_clean_data_matrix(multiple_workouts1_path)[1][0] == '21 November, day 2\n'
+    assert return_clean_data_matrix(multiple_workouts1_path)[1][-1] == 'Est ?? mins\n'
+    assert return_clean_data_matrix(multiple_workouts1_path)[2][0] == '24 November, day 4\n'
+    assert return_clean_data_matrix(multiple_workouts1_path)[2][-1] == 'Est 91 mins\n'
+
+    assert len(return_clean_data_matrix(multiple_workouts2_path)) == 3
+    assert return_clean_data_matrix(multiple_workouts2_path)[0][0] == '7 October\n'
+    assert return_clean_data_matrix(multiple_workouts2_path)[0][-1] == 'Est 74 mins\n'
+    assert return_clean_data_matrix(multiple_workouts2_path)[1][0] == '5 October\n'
+    assert return_clean_data_matrix(multiple_workouts2_path)[1][1] == 'Flat leg press 107kg: 10,10,10\n'
+    assert return_clean_data_matrix(multiple_workouts2_path)[1][-1] == 'Est 69 mins\n'
+    assert return_clean_data_matrix(multiple_workouts2_path)[2][0] == '1 October\n'
+    assert return_clean_data_matrix(multiple_workouts2_path)[2][-1] == 'Est 62 mins\n'
+    assert return_clean_data_matrix(multiple_workouts2_path)[2][-3] == '\n'
+    assert return_clean_data_matrix(multiple_workouts2_path)[2][-4] == 'Dead hang\n'
+
+    # we deliberately don't catch the exercises listed up top without an est xx mins line
+    assert len(return_clean_data_matrix(multiple_workouts3_path)) == 2
+    assert return_clean_data_matrix(multiple_workouts3_path)[0][0] == '26 October\n'
+    assert return_clean_data_matrix(multiple_workouts3_path)[0][-1] == 'Est 57 mins\n'
 
 
-# def test_return_clean_data():
-#     # copies all non-extraneous workout data from source_path into a matrix
-#     # then returns that matrix
-#     # we feed it a source path and confirm that it saves all workouts from that source
-#     # note that we do NOT check the contents of each workout here (so far)
-#
-#     # we check length because otherwise we get weird problems with the list contents
-#     # being identical, but the commas separating items being invalidly positioned
-#     r1 = return_clean_data(multiple_workouts3_path)
-#     assert len(r1) == 2
+def test_return_parsed_data():
+    # expects to read exclusively workout data. (Typically the output of return_clean_data_matrix())
+    # returns a list of lists. Each workout is 1 list. Each sublist contains 2 tuples:
+    # each tuple[0] is the date, and each tuple[1] is a string containing a formatted workout
+    assert len(return_parsed_data(single_workout1_path)) == 1
+    assert isinstance(return_parsed_data(single_workout1_path), list)
+    assert isinstance(return_parsed_data(single_workout1_path)[0], tuple)
+    assert isinstance(return_parsed_data(single_workout1_path)[0][0], str)
+    assert isinstance(return_parsed_data(single_workout1_path)[0][1], str)
+    assert return_parsed_data(single_workout1_path)[0][0] == '22 November'
+    # fully parsed and ready to write.
+    assert return_parsed_data(single_workout1_path)[0][1] == single_workout1_solution
 
+    assert len(return_parsed_data(multiple_workouts3_path)) == 2
+    assert return_parsed_data(multiple_workouts2_path)[0][0] == '7 October'
+    assert return_parsed_data(multiple_workouts2_path)[1][0] == '5 October'
+    assert return_parsed_data(multiple_workouts2_path)[0][1] == multiple_workout3_solution_matrix[0]
+    assert return_parsed_data(multiple_workouts2_path)[1][1] == multiple_workout3_solution_matrix[1]
 
+    assert len(return_parsed_data(single_cardio1_path)) == 1
+    assert return_parsed_data(single_cardio1_path)[0][0] == '3 October'
+    assert return_parsed_data(single_cardio1_path)[0][1] == single_cardio1_solution
 
-# def test_strip_num_x_nums():
-#     # regex to match: 4x7 , 3x5 , 5x6 min , 7x4+, 2x10-12 etc
-#     # I don't even use these features any more
-#     # assert strip_num_x_nums('') = True
-#     # assert strip_num_x_nums('') = True
-#     # assert strip_num_x_nums('') = True
-#     # assert strip_num_x_nums('') = True
-#     # assert strip_num_x_nums('') = False
-#     # assert strip_num_x_nums('') = False
-#     # assert strip_num_x_nums('') = False
-#
-#     # regex to match: kilogram range comma and trailing space (e.g. '75-85kg, ')
-#     # assert strip_num_x_nums('') = True
-#     # assert strip_num_x_nums('') = True
-#     # assert strip_num_x_nums('') = True
-#     # assert strip_num_x_nums('') = True
-#     # assert strip_num_x_nums('') = False
-#     # assert strip_num_x_nums('') = False
-#     # assert strip_num_x_nums('') = False
-#
-#     # regex to match: exercise-set count, leading and trailing spaces. e.g. ' 3 sets '
-#     # assert strip_num_x_nums('') = True
-#     # assert strip_num_x_nums('') = True
-#     # assert strip_num_x_nums('') = True
-#     # assert strip_num_x_nums('') = True
-#     # assert strip_num_x_nums('') = False
-#     # assert strip_num_x_nums('') = False
-#     # assert strip_num_x_nums('') = False
-#
-#     assert True
-
-'''
-def test_copy_and_parsing():
-    # test that the program copies and parses a workout correctly
-    # test single workouts (files containing nothing but 1 workout)
-    assert parse_it(copy_days_data(single_workout1_path)) == keep2calc_tests.tst_solutions.single_workout1_solution
-    assert parse_it(copy_days_data(single_workout2_path)) == keep2calc_tests.tst_solutions.single_workout2_solution
-    assert parse_it(copy_days_data(single_workout3_path)) == keep2calc_tests.tst_solutions.single_workout3_solution
-
-    # test copying and parsing for files containing multiple workouts
-    # note that in the case of multiple workouts, it should only return the first workout!
-    assert parse_it(copy_days_data(multiple_workouts1_path)) == keep2calc_tests.tst_solutions.multiple_workout1_solution
-    assert parse_it(copy_days_data(multiple_workouts2_path)) == keep2calc_tests.tst_solutions.multiple_workout2_solution
-
-    # test copying and parsing for files containing noise: data unrelated to workouts
-    # in this test case, there's a fabricated event preceding the workout in the input file
-    # it has no est xx mins line or workout exercises
-    assert parse_it(
-        copy_days_data(noisy_data_single_workout1_path)) == keep2calc_tests.tst_solutions.noisy_data_single_workout1_solution
-'''
+    assert len(return_parsed_data(single_shadowboxing1_path)) == 1
+    assert return_parsed_data(single_shadowboxing1_path)[0][0] == '6 October'
+    assert return_parsed_data(single_shadowboxing1_path)[0][1] == single_shadowboxing1_solution

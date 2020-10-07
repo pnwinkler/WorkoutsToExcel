@@ -1,4 +1,3 @@
-# todo: delete source on desktop after successful program run
 # BEST CALLED VIA COMMAND LINE
 # !!NOTE: should not be used for workouts more than 1 year old!!
 #   you will get bad results.
