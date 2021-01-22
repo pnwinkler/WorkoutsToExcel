@@ -1,4 +1,3 @@
-# todo: consider writing checks so that if both dd/mm/YYYY and dd/mm/YYYY-1 are found, an error is raised
 import re
 import openpyxl
 import os

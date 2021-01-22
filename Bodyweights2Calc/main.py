@@ -5,6 +5,8 @@
 # consider creating a version for use by crontab
 # REMEMBER to change utilities.params whenever necessary, and to suffix EVERY bodyweight with a comma.
 
+
+
 import openpyxl
 import re
 from datetime import datetime
@@ -129,17 +131,6 @@ def trash_original_and_replace(keep, bw_note, history):
     # it seems to have failed with a 1 second pause before
     import time
     time.sleep(3)
-
-    # todo: determine if bw_note is only the local object, or if it refers to the online object
-    #  if it's the former, then this block probably won't achieve anything
-    # for x in range(2):
-    #     if not bw_note.trashed:
-    #         # sometimes the trashing above fails. Not sure why
-    #         bw_note.trash()
-    #         keep.sync()
-    #         time.sleep(2)
-    #     else:
-    #         break
 
 
 def find_bodyweights_note(notes):
