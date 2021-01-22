@@ -252,9 +252,9 @@ def return_parsed_data(clean_source=p.source_path):
     with open(clean_source, 'r') as f:
         lines = f.readlines()
 
-    # account for user error: strip leading space before an exercise
+    # account for user error: strip leading space before or after an exercise
     for i in range(len(lines)):
-        lines[i] = lines[i].lstrip(' ')
+        lines[i] = lines[i].lstrip(' ').rstrip(' ')
 
     # convert from source format to storage format
     # replace ('+','\n'). Append ';'. Remove fluff like '4x7', '3 sets'
