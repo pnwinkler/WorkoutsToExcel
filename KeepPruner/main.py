@@ -232,21 +232,24 @@ def main():
                          f"Offender = {offender}")
 
     present_deletion_candidates(deletion_candidates)
+
     if is_deletion_requested():
-        for note in deletion_candidates:
-            # trash() is reversible. delete() is not. Trashed notes will be deleted in 7 days.
-            if note is not None:
-                note.trash()
-        keep.sync()
         certain = input("Press 'C' to confirm deletion. Any other key to undo: ").lower()
         if certain != 'c':
+            print("No changes made")
+            exit()
+        else:
             for note in deletion_candidates:
-                print("No changes made")
-                note.untrash()
-                time.sleep(2)
-        keep.sync()
+                # trash() is reversible. delete() is not. Trashed notes will be deleted in 7 days.
+                if note is not None:
+                    note.trash()
+            print("Synchronizing")
+            keep.sync()
+            # give sync time, in case of poor internet
+            time.sleep(3)
+            print("Specified notes deleted")
     else:
-        print("Specified notes deleted")
+        print("No changes made")
         exit()
 
 
