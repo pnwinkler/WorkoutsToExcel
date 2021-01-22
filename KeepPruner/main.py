@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 import utilities.utility_functions as uf
 import utilities.params as p
 import openpyxl
+import time
 
 # key is date (particular format!!), value is value found in xlsx file for that date
 date_xlsx_snippet_dict = dict()
@@ -147,12 +148,13 @@ def is_deletion_requested():
 def greet():
     greeting = '\n\t\t\t GKEEP NOTE DELETER \n' + \
                '\tdeletes workout notes from a google keep account up to a given date\n' \
-               '\t*provided they are already written to file*\n'
+               '\t*provided they are already written to file* and you give your approval\n' \
+               '\t(Don\'t worry, we\'ll ask you before changing anything)\n'
     print(greeting)
 
 
 def request_end_date():
-    print('\tto start, please enter the date you wish to delete up to in DDMM format')
+    print('\tTo start, please enter the date you wish to delete up to in DDMM format')
     print('\t(if your DDMM > today, we\'ll choose DDMM + YY-1)')
     today = datetime.today()
     while True:
@@ -239,9 +241,12 @@ def main():
         certain = input("Press 'C' to confirm deletion. Any other key to undo: ").lower()
         if certain != 'c':
             for note in deletion_candidates:
+                print("No changes made")
                 note.untrash()
+                time.sleep(2)
         keep.sync()
     else:
+        print("Specified notes deleted")
         exit()
 
 
