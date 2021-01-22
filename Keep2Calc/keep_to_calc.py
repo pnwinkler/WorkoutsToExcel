@@ -135,7 +135,7 @@ def write_workouts_to_xlsx(parsed_data, backup=True):
             # exercise would be in the future, so we assume it's from last year
             exercise_datetime = exercise_datetime.replace(year=now.year - 1)
 
-        r = uf.find_xlsx_datecell(sheet, exercise_datetime, p.date_column)
+        r = uf.find_row_of_datecell_given_datetime(sheet, exercise_datetime, p.date_column)
         if r == -1:
             print(f'Error: write_workouts_to_xlsx failed to write workout for date {print_friendly_datetime}')
             # add the date but not the hour, minute, second values
@@ -233,7 +233,8 @@ def is_date(string, fuzzy=False):
                 return True
         return False
 
-    except ValueError:
+    except (ValueError, OverflowError):
+        # phone numbers can result in overflow in parse() function
         return False
 
 

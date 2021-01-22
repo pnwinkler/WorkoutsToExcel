@@ -28,11 +28,6 @@ def backup_targetpath():
         shutil.copy(target_path, backup_full_path)
 
 
-def return_now_as_friendly_datetime():
-    # return datetime.now() in a usable format (that the other programs expect)
-    return datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-
-
 def convert_ddmmyyyy_to_datetime(date_str, verbose=True):
     # take string in form DDMMYYYY and return its datetime equivalent
     # also accepts strings like DDMONTHYYY where MONTH is a string
@@ -68,7 +63,7 @@ def convert_ddmmyyyy_to_datetime(date_str, verbose=True):
     return date_str
 
 
-def find_xlsx_datecell(sheet, datetime_date, date_column=2):
+def find_row_of_datecell_given_datetime(sheet, datetime_date, date_column=2):
     # returns row value of cell containing specified date, in specified column
     # returns -1 if not found
     # takes parameter sheet: a valid sheet object in an xlsx file
@@ -77,11 +72,12 @@ def find_xlsx_datecell(sheet, datetime_date, date_column=2):
 
     # this may be redundant. We can probably assume we'll get a proper sheet object
     if not isinstance(sheet, openpyxl.worksheet.worksheet.Worksheet):
-        print(f'Invalid parameter: find_xlsx_datecell did not receive a valid sheet, sheet type = {type(sheet)}')
+        print(
+            f'Invalid parameter: find_row_of_datecell_given_datetime did not receive a valid sheet, sheet type = {type(sheet)}')
         return -1
     if not isinstance(datetime_date, datetime):
         print(
-            f'Invalid parameter: find_xlsx_datecell did not receive a valid datetime_date. It received: {datetime_date}')
+            f'Invalid parameter: find_row_of_datecell_given_datetime did not receive a valid datetime_date. It received: {datetime_date}')
         return -1
 
     # find date cell matching the "date" parameter in the given sheet
@@ -151,6 +147,11 @@ def retrieve_notes(keep):
     if not gnotes:
         raise ValueError('No notes found. Incorrect username or password?')
     return gnotes
+
+
+def return_now_as_friendly_datetime():
+    # return datetime.now() in a usable format (that the other programs expect)
+    return datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
 
 def target_path_is_xslx():

@@ -58,7 +58,7 @@ def is_deletion_candidate(sheet, note, end_date):
         return False
 
     # find date cell in xlsx matching the date of our Note object
-    row = uf.find_xlsx_datecell(sheet, note_date, p.date_column)
+    row = uf.find_row_of_datecell_given_datetime(sheet, note_date, p.date_column)
     if row == -1:
         # matching date cell not found.
         # Therefore, we assume workout is not written (Keep2Calc does not write on lines with empty date cells)

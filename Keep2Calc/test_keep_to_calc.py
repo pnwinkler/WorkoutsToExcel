@@ -136,7 +136,7 @@ def test_return_clean_data_matrix():
 
 def test_return_parsed_data():
     # expects to read exclusively workout data. (Typically the output of return_clean_data_matrix())
-    # returns a list of lists. Each workout is 1 list. Each sublist contains 2 tuples:
+    # returns a list of lists. Each workout is 1 inner list. Each inner list contains 2 tuples:
     # each tuple[0] is the date, and each tuple[1] is a string containing a formatted workout
     assert len(return_parsed_data(single_workout1_path)) == 1
     assert isinstance(return_parsed_data(single_workout1_path), list)
