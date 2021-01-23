@@ -2,6 +2,7 @@ import re
 import openpyxl
 import os
 from datetime import datetime
+from dateutil.parser import parse
 import utilities.params as p
 import utilities.utility_functions as uf
 
@@ -205,7 +206,6 @@ def is_dateline(line):
 
 def is_date(string, fuzzy=False):
     # helper function for is_dateline()
-    from dateutil.parser import parse
     """
     # copied from Stackoverflow solution
     Return whether the string can be interpreted as a date.
