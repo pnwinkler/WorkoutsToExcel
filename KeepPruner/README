@@ -1,4 +1,4 @@
-This program trashes notes in Google Keep whose contents have already been written to the target file, 
+This program trashes workout notes in Google Keep whose contents have already been written to the target file. 
 
 *How it works*
  - This program checks which notes in Keep have already been written to the local xlsx file
