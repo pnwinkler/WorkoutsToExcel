@@ -1,5 +1,10 @@
-This will find the Google Keep note matching a specified format, like this:
-"80.1, 80.3, 80.2, 81,"
-where each number indicates the logger's bodyweight on that day.
+Bodyweights2Calc retrieves bodyweights from Google Keep and writes them to a local xlsx file.
 
-It will then write these bodyweights to the cell neighboring the date on which that measurement was taken. Precautions will be taken: for example, if there are too few or too many bodyweights provided, the user will prompted to insert or delete a measurement. These changes will then be written to a local xlsx file. Once complete, the program will tidy up, removing all but the last X measurements from the Google Keep note (where X is specified by the history_length parameter).
+*How it works*:
+1) Bodyweights2Calc finds the (singular) Google Keep note whose title or body matches an expected format where numbers are comma-separated and comma-terminated, like this:
+"80.1, 80.3, 80.2, 81,"
+Each number indicates the user's bodyweight on a given day. The program expects one value for every day. "?, " can be used in place of a forgotten or unlogged value. 
+
+2) It writes each of those bodyweights to the cell neighboring the date on which that measurement was taken, in the local xlsx file. Precautions will be taken: for example, if there are too few or too many bodyweights provided, the user will prompted to insert or delete a measurement. 
+
+3) Once complete, the program will tidy up, removing all but the last X measurements from the Google Keep note (where X is specified by the history_length parameter in Bodyweights2Calc/main.py).

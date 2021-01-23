@@ -69,7 +69,6 @@ strings_to_write_lst = ktc.return_parsed_data(p.source_path)
 # write it to target file
 ktc.write_workouts_to_xlsx(strings_to_write_lst, backup=True)
 
-# remove original, 'dirty' file.
 os.remove(p.source_path)
 print(
     "All done! Consider double-checking the now-updated target file, then running KeepPruner if you'd like to delete the "
