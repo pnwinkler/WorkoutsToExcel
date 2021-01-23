@@ -4,9 +4,9 @@ import os
 
 # CHANGE AS NEEDED:
 
-# source_path is where Keep2Calc writes the data that it pulls from Google Keep, for you to then verify. The idea is that you can delete any non-workout data that the program has erroneously retrieved (if any).
-# cleaned_data_path is where Keep2Calc will write to, for its own use, after you've verified that source_path contains only workouts.
-# Before the end of program execution, both files will be deleted automatically. 
+# source_path is where Keep2Calc writes the data that it pulls from Google Keep, for internal use. This will be tidied up, then written to cleaned_data_path.
+# cleaned_data_path is where Keep2Calc will write the tidied output of source_path to, for you to verify. The idea is that you can delete non-workout data that the program has erroneously retrieved (if any) before execution resumes.
+# Both files will be deleted automatically before program termination. 
 source_path = os.path.join(os.path.sep, 'home','philip','Desktop', 'keep2calc_source.txt')
 cleaned_data_path = os.path.join(os.path.sep, 'home','philip','Desktop', 'keep2calc_source_CLEANED.txt')
 
