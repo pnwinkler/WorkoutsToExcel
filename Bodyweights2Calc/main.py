@@ -44,7 +44,7 @@ def main():
         from datetime import timedelta
         today -= timedelta(days=1)
 
-    end_row = uf.find_row_of_datecell_given_datetime(sheet, today)
+    end_row = uf.find_row_of_datecell_given_datetime(sheet, today, date_column=p.date_column)
     if sheet.cell(end_row, p.bodyweight_column).value:
         print("Value already written for today. Exiting program")
         exit()
@@ -56,28 +56,29 @@ def main():
         print(f"bw_edit_timestamp= {bw_edit_timestamp}, note text=\"{bw_note.text}\"")
         exit()
 
-    bodyweights_lst = return_bw_lst(bw_note)
-    # todo: replace this. You don't want start row determined by what you have. You want it determined by
-    #  what it should be, i.e. what's missing
-    start_row = end_row - len(bodyweights_lst) + 1
-
-    # pair bodyweights with their target rows, as tpl[0]=int row, tpl[1]=str bodyweight
-    # it will raise exceptions if anything is amiss.
-    row_bw_tpl_lst = pair_bodyweights_with_rows(sheet, bodyweights_lst, start_row)
-
-    todays_row = uf.find_row_of_datecell_given_datetime(sheet, today)
-    final_write_row = row_bw_tpl_lst[-1][0]
+    start_row = uf.return_first_empty_bodyweight_row(sheet,
+                                                     date_column=p.date_column,
+                                                     bodyweight_column=p.bodyweight_column)
+    todays_row = uf.find_row_of_datecell_given_datetime(sheet, datetime.today())
     if todays_row == -1:
         raise ValueError("Today's date cell not found")
-    if todays_row > final_write_row:
-        raise ValueError("Not enough bodyweights provided. "
-                         f"\nEstimated {todays_row - final_write_row} bodyweights too few provided."
-                         f"\n(note: estimation does not account for gaps in between bodyweight cells, "
-                         f"as might appear at year's end)")
-    elif todays_row < final_write_row:
-        raise ValueError("Too many bodyweights provided. "
-                         f"\n{final_write_row - todays_row} too many provided. "
-                         "Please check for duplicates.")
+    bodyweights_lst = return_bw_lst(bw_note)
+
+    # count_empty_cells_between_rows() accounts for fact that there may be empty rows separating years' entries.
+    num_expected_bodyweights = (end_row - start_row + 1) - uf.count_empty_cells_between_rows(sheet, start_row, end_row,
+                                                                                             cols_lst=[p.date_column])
+    num_provided_bodyweights = len(bodyweights_lst)
+
+    if num_expected_bodyweights != num_provided_bodyweights:
+        print(f"Incorrect number of bodyweights supplied. "
+              f"Expected {num_expected_bodyweights} bodyweights in note. Found {num_provided_bodyweights} bodyweights")
+        print("Please correct the bodyweights note. In case of missing values, a question mark is a valid substitute"
+              "for a forgotten bodyweight.")
+        exit()
+
+    # pair bodyweights with their target rows, where tpl[0]=int row, tpl[1]=str bodyweight
+    # it accounts for emtpy rows, and will raise exceptions if anything is amiss.
+    row_bw_tpl_lst = pair_bodyweights_with_rows(sheet, bodyweights_lst, start_row)
 
     uf.backup_targetpath()
     print("Writing bodyweights to file")
@@ -120,7 +121,7 @@ def trash_original_and_replace(keep, bw_note, history) -> None:
     # items in trash remain available for 7 days, whereas changes to bw_note are irreversible
     # that's why we create a new note this way.
 
-    keep.createNote(title='', history=history)
+    keep.createNote(title='', text=history)
     bw_note.trash()
     keep.sync()
     print("Synchronizing")
@@ -147,7 +148,7 @@ def find_bodyweights_note(notes) -> gkeepapi.node.Note:
                 # it's probably a PIN
                 continue
 
-            for accepted_symbol in ["(),.? "]:
+            for accepted_symbol in "(),.? ":
                 x = x.replace(accepted_symbol, '')
             if not x.isdigit():
                 continue
@@ -215,8 +216,10 @@ def pair_bodyweights_with_rows(sheet, bodyweights_lst, start_row: int):
     # we separate this function from the write function because we want an atomic transaction
     # either all writes succeed, or none do (and we don't write or change anything)
     # so we check all rows before writing anything
+    # accounts for empty cells!
+    # todo: rework description
 
-    retlist = []
+    tpl_pairs_lst = []
     current_row = start_row
     max_empty_rows = 10
     count_empty = 1
@@ -236,16 +239,16 @@ def pair_bodyweights_with_rows(sheet, bodyweights_lst, start_row: int):
         bw_cell_value = sheet.cell(row=current_row, column=p.bodyweight_column).value
         if bw_cell_value is None:
             tpl = (current_row, str(bw))
-            retlist.append(tpl)
+            tpl_pairs_lst.append(tpl)
             current_row += 1
         else:
             raise ValueError(f"Cannot write to cell {current_row} - cell already written to!\n"
                              f"No changes have been made")
 
-    if len(retlist) == len(bodyweights_lst):
-        return retlist
+    if len(tpl_pairs_lst) == len(bodyweights_lst):
+        return tpl_pairs_lst
     else:
-        raise Exception("Programming error: length of retlist does not equal length of bodyweights_lst")
+        raise Exception("Programming error: length of tpl_pairs_lst does not equal length of bodyweights_lst")
 
 
 def write_to_file(wb, sheet, row_bodyweight_tuple_list):
