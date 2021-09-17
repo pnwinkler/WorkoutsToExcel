@@ -8,24 +8,24 @@ import getpass
 
 
 def backup_targetpath():
-    if not backup_folder_name:
+    if not BACKUP_FOLDER_NAME:
         bk_folder_name = 'Keep2Calc.backups'
     else:
-        bk_folder_name = backup_folder_name
+        bk_folder_name = BACKUP_FOLDER_NAME
 
-    backup_folder = os.path.join(os.path.dirname(target_path), bk_folder_name)
+    backup_folder = os.path.join(os.path.dirname(TARGET_PATH), bk_folder_name)
 
     if not os.path.exists(backup_folder):
         os.makedirs(backup_folder)
 
     now = datetime.now()
     dmy = '{}.{}.{}'.format(now.day, now.month, now.year)
-    backup_basename = 'backup_' + dmy + '_' + os.path.basename(target_path)
+    backup_basename = 'backup_' + dmy + '_' + os.path.basename(TARGET_PATH)
     backup_full_path = os.path.join(backup_folder, backup_basename)
 
     if not os.path.exists(backup_full_path):
         print('Backing up target file')
-        shutil.copy(target_path, backup_full_path)
+        shutil.copy(TARGET_PATH, backup_full_path)
 
 
 def convert_ddmmyyyy_to_datetime(date_str, verbose=True):
@@ -86,8 +86,8 @@ def find_row_of_datecell_given_datetime(sheet, datetime_target, date_column=2) -
     # returns row value of cell containing specified date, in specified column
     # returns -1 if not found
     # takes parameter sheet: a valid sheet object in an xlsx file
-    # takes parameter datetime_target: the datetime date to search for in date_column
-    # takes parameter date_column: column in which to search for date
+    # takes parameter datetime_target: the datetime date to search for in DATE_COLUMN
+    # takes parameter DATE_COLUMN: column in which to search for date
 
     datetime_target = datetime_target.replace(hour=0, minute=0, second=0, microsecond=0)
 
@@ -110,7 +110,7 @@ def find_row_of_datecell_given_datetime(sheet, datetime_target, date_column=2) -
     empty_cell_count = 0
     while True:
         r += 1
-        # check datetime cells in date_column for exercise_datetime match.
+        # check datetime cells in DATE_COLUMN for exercise_datetime match.
         # break if too many empty cells found in place of dates.
         if isinstance(sheet.cell(row=r, column=date_column).value, datetime):
             empty_cell_count = 0
@@ -208,16 +208,16 @@ def return_now_as_friendly_datetime():
 
 
 def target_path_is_xslx():
-    # returns True if utilities.target_path variable points to .xslx file
-    filename, file_extension = os.path.splitext(target_path)
+    # returns True if utilities.TARGET_PATH variable points to .xslx file
+    filename, file_extension = os.path.splitext(TARGET_PATH)
     if file_extension == '.xlsx':
         return True
     return False
 
 
 def targetsheet_exists():
-    wb = openpyxl.load_workbook(target_path)
-    if target_sheet in wb.sheetnames:
+    wb = openpyxl.load_workbook(TARGET_PATH)
+    if TARGET_SHEET in wb.sheetnames:
         return True
     else:
         return False

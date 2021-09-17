@@ -1,11 +1,11 @@
 # removes workout Notes from Keep that are already written
-# to the xlsx file specified in utilities.params.target_path,
+# to the xlsx file specified in utilities.params.TARGET_PATH,
 # up to a given, user-provided date
 
 # How it works:
 # retrieves and processes all Note objects at once,
 # gives user overview of notes facing deletion, plus how they exist
-# both in target_path, and in the Keep note,
+# both in TARGET_PATH, and in the Keep note,
 # then requests user's permission to delete
 
 from datetime import datetime, timedelta
@@ -59,7 +59,7 @@ def is_deletion_candidate(sheet, note, end_date):
         return False
 
     # find date cell in xlsx matching the date of our Note object
-    row = uf.find_row_of_datecell_given_datetime(sheet, note_date, p.date_column)
+    row = uf.find_row_of_datecell_given_datetime(sheet, note_date, p.DATE_COLUMN)
     if row == -1:
         # matching date cell not found.
         # Therefore, we assume workout is not written (Keep2Calc does not write on lines with empty date cells)
@@ -67,7 +67,7 @@ def is_deletion_candidate(sheet, note, end_date):
 
     # 3), 4)
     # check that the workout is written in the corresponding row, in the column we expect
-    cell_value = sheet.cell(row=row, column=p.workout_column).value
+    cell_value = sheet.cell(row=row, column=p.WORKOUT_COLUMN).value
     if isinstance(cell_value, str):
         if uf.is_est_xx_mins_line(cell_value.lower()):
             # workout is probably written. This is a crummy way to check though
@@ -198,9 +198,9 @@ def return_note_text_minus_comments(note):
 
 def main():
     if not uf.target_path_is_xslx():
-        raise ValueError("target_path in utilities.parameters incorrectly set. It does not point to an xlsx file")
+        raise ValueError("TARGET_PATH in utilities.parameters incorrectly set. It does not point to an xlsx file")
     if not uf.targetsheet_exists():
-        raise ValueError("target_sheet in utilities.parameters incorrectly set. Sheet not found in xlsx file")
+        raise ValueError("TARGET_SHEET in utilities.parameters incorrectly set. Sheet not found in xlsx file")
 
     greet()
     end_date = request_end_date()
@@ -208,8 +208,8 @@ def main():
     notes = uf.retrieve_notes(keep)
     deletion_candidates = []
 
-    wb = openpyxl.load_workbook(p.target_path)
-    sheet = wb[p.target_sheet]
+    wb = openpyxl.load_workbook(p.TARGET_PATH)
+    sheet = wb[p.TARGET_SHEET]
 
     # precaution against loss of data from mis-titled notes.
     # catch duplicate dates (user error) by comparing the list of note dates to the set of note dates

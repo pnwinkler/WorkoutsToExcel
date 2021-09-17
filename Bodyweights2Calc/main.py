@@ -1,6 +1,6 @@
 # retrieves bodyweights from Google Keep,
 # then writes them to the correct row
-# in the file specified by utilities.params.target_path
+# in the file specified by utilities.params.TARGET_PATH
 # does intelligent stuff too, like alert the user to missing entries, etc
 # consider creating a version for use by crontab
 # REMEMBER to change utilities.params whenever necessary, and to suffix EVERY bodyweight with a comma.
@@ -28,8 +28,8 @@ def main():
     if not uf.targetsheet_exists():
         raise ValueError("Target xlsx does not contain sheet specified in params.py")
 
-    wb = openpyxl.load_workbook(p.target_path)
-    sheet = wb[p.target_sheet]
+    wb = openpyxl.load_workbook(p.TARGET_PATH)
+    sheet = wb[p.TARGET_SHEET]
     keep = uf.login_and_return_keep_obj()
     notes = uf.retrieve_notes(keep)
     bw_note = find_bodyweights_note(notes)
@@ -44,8 +44,8 @@ def main():
         from datetime import timedelta
         today -= timedelta(days=1)
 
-    end_row = uf.find_row_of_datecell_given_datetime(sheet, today, date_column=p.date_column)
-    if sheet.cell(end_row, p.bodyweight_column).value:
+    end_row = uf.find_row_of_datecell_given_datetime(sheet, today, date_column=p.DATE_COLUMN)
+    if sheet.cell(end_row, p.BODYWEIGHT_COLUMN).value:
         print("Value already written for today. Exiting program")
         exit()
 
@@ -57,8 +57,8 @@ def main():
         exit()
 
     start_row = uf.return_first_empty_bodyweight_row(sheet,
-                                                     date_column=p.date_column,
-                                                     bodyweight_column=p.bodyweight_column)
+                                                     date_column=p.DATE_COLUMN,
+                                                     bodyweight_column=p.BODYWEIGHT_COLUMN)
     todays_row = uf.find_row_of_datecell_given_datetime(sheet, datetime.today())
     if todays_row == -1:
         raise ValueError("Today's date cell not found")
@@ -66,7 +66,7 @@ def main():
 
     # count_empty_cells_between_rows() accounts for fact that there may be empty rows separating years' entries.
     num_expected_bodyweights = (end_row - start_row + 1) - uf.count_empty_cells_between_rows(sheet, start_row, end_row,
-                                                                                             cols_lst=[p.date_column])
+                                                                                             cols_lst=[p.DATE_COLUMN])
     num_provided_bodyweights = len(bodyweights_lst)
 
     if num_expected_bodyweights != num_provided_bodyweights:
@@ -225,18 +225,18 @@ def pair_bodyweights_with_rows(sheet, bodyweights_lst, start_row: int):
     count_empty = 1
 
     for bw in bodyweights_lst:
-        date_cell_value = sheet.cell(row=current_row, column=p.date_column).value
+        date_cell_value = sheet.cell(row=current_row, column=p.DATE_COLUMN).value
         while date_cell_value is None:
             # skip empty cells in date column (e.g. at end of year), up to max length "max_empty_rows"
             current_row += 1
             count_empty += 1
-            date_cell_value = sheet.cell(row=current_row, column=p.date_column).value
+            date_cell_value = sheet.cell(row=current_row, column=p.DATE_COLUMN).value
             if count_empty == max_empty_rows:
                 print(f"error at row {current_row}")
                 raise IndexError(f"Found too many empty date cells ({count_empty}). "
                                  f"Please verify that your date cell column has values remaining")
 
-        bw_cell_value = sheet.cell(row=current_row, column=p.bodyweight_column).value
+        bw_cell_value = sheet.cell(row=current_row, column=p.BODYWEIGHT_COLUMN).value
         if bw_cell_value is None:
             tpl = (current_row, str(bw))
             tpl_pairs_lst.append(tpl)
@@ -260,12 +260,12 @@ def write_to_file(wb, sheet, row_bodyweight_tuple_list):
             # we write as float because otherwise Calc (and perhaps Excel)
             # prepend each value with a "'", to mark it as a string, causing it
             # to be left-aligned. The float conversion avoids that
-            sheet.cell(row=tpl[0], column=p.bodyweight_column).value = float(tpl[1])
+            sheet.cell(row=tpl[0], column=p.BODYWEIGHT_COLUMN).value = float(tpl[1])
         except ValueError:
             # given bodyweight is "?"
-            sheet.cell(row=tpl[0], column=p.bodyweight_column).value = tpl[1]
+            sheet.cell(row=tpl[0], column=p.BODYWEIGHT_COLUMN).value = tpl[1]
 
-    wb.save(p.target_path)
+    wb.save(p.TARGET_PATH)
 
 
 if __name__ == '__main__':

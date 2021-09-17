@@ -3,40 +3,35 @@ import openpyxl
 import os
 from datetime import datetime
 from dateutil.parser import parse
+from typing import List
 import GKeepToCalc.utilities.params as p
 import GKeepToCalc.utilities.utility_functions as uf
 
-months = [
-    'january', 'february', 'march', 'april',
-    'may', 'june', 'july', 'august', 'september',
-    'october', 'november', 'december'
-]
+# months = [
+#     'january', 'february', 'march', 'april',
+#     'may', 'june', 'july', 'august', 'september',
+#     'october', 'november', 'december'
+# ]
 
 
-def initial_checks():
-    if not os.path.exists(p.source_path):
-        print('source path not found')
-        exit()
+def initial_checks() -> None:
+    if not os.path.exists(p.SOURCE_PATH):
+        raise FileNotFoundError('source path not found')
     if not is_date_given():
-        print('No date line found in source file')
-        exit()
-    if not os.path.exists(p.target_path):
-        print('target path not found')
-        exit()
+        raise ValueError('No date line found in source file')
+    if not os.path.exists(p.TARGET_PATH):
+        raise FileNotFoundError('target path not found')
     if uf.target_path_is_xslx():
         if not uf.targetsheet_exists():
-            print('Error: target_sheet not found at {}'.format(p.target_path))
-            exit()
+            raise ValueError('Error: TARGET_SHEET not found at {}'.format(p.TARGET_PATH))
     else:
-        print('target file is not xslx. Keep2Calc is not intended for non-xlsx target files.')
-        exit()
+        RuntimeError('target file is not xslx. Keep2Calc is not intended for non-xlsx target files.')
 
 
-def return_clean_data_matrix(source=p.source_path):
-    # copies data from source_path
-    # removes anything which isn't a workout
-    # appends workouts as one list each (consisting of however many lines)
-    # to a matrix, then returns that
+def return_list_of_workouts_from_file(source=p.SOURCE_PATH) -> List[List[str]]:
+    # reads lines from path, removing anything which isn't a workout
+    # returns a list of workouts, where each "workout" is the unfiltered
+    # list of all lines thought to be part of that workout note
 
     # a list of lists, containing all workouts, each saved as a list
     lines_to_write_matrix = []
@@ -47,8 +42,7 @@ def return_clean_data_matrix(source=p.source_path):
 
     start_appending = False
     for line in lines:
-        # in order to prevent noise (==non-workout data) in source file from becoming
-        # part of the returned matrix (of lines to write), we:
+        # how we identify and copy workouts:
         # 1) start copying at a dateline. We append each line to days_data
         # 2) we append up to and including the next est xx mins line
         #   2ii) If we encounter another dateline before the est xx mins line,
@@ -57,24 +51,6 @@ def return_clean_data_matrix(source=p.source_path):
         #   Next loop, we then repeat from stage 2 onwards
         # 3) we append the complete workout in days_data to lines_to_write_matrix
         # 4) once all lines are read, we return lines_to_write_matrix
-
-        # REMINDER: if you get weird results, like multiple non-workout notes being
-        # erroneously recognized as a workout make sure that you do not have 2
-        # workout entries for that date, e.g. 23 July 2019 and 23 July 2020.
-        # In my case the 3 notes below were concatenated into one line.
-        #
-        # 11 August
-        # 2/10 left knee pain
-        # The food medic
-        #
-        # Fire PIN + engineer's cellphone number
-        # PIN \d\d\d\d
-        # Name tel-number
-        #
-        # 23 July, off day
-        # Treadmill (...)
-        # 3 sets neck extensions, ...
-        # Est ?? mins
 
         if not start_appending:
             if is_dateline(line):
@@ -99,7 +75,7 @@ def return_clean_data_matrix(source=p.source_path):
 
 
 def write_workouts_to_xlsx(parsed_data, backup=True):
-    # writes to specified sheet in xlsx file at target_path,
+    # writes to specified sheet in xlsx file at TARGET_PATH,
     # to the correct date cell.
     # Takes parsed_data, a list of tuples where tuple[0] is a workout's date
     # and tuple[1] the workout data for that day
@@ -107,8 +83,8 @@ def write_workouts_to_xlsx(parsed_data, backup=True):
     if backup:
         uf.backup_targetpath()
 
-    wb = openpyxl.load_workbook(p.target_path)
-    sheet = wb[p.target_sheet]
+    wb = openpyxl.load_workbook(p.TARGET_PATH)
+    sheet = wb[p.TARGET_SHEET]
 
     # any workouts that failed to write are added to this
     # later printed, to inform the user of workouts that need their attention
@@ -135,7 +111,7 @@ def write_workouts_to_xlsx(parsed_data, backup=True):
             # exercise would be in the future, so we assume it's from last year
             exercise_datetime = exercise_datetime.replace(year=now.year - 1)
 
-        r = uf.find_row_of_datecell_given_datetime(sheet, exercise_datetime, p.date_column)
+        r = uf.find_row_of_datecell_given_datetime(sheet, exercise_datetime, p.DATE_COLUMN)
         if r == -1:
             print(f'Error: write_workouts_to_xlsx failed to write workout for date {print_friendly_datetime}')
             # add the date but not the hour, minute, second values
@@ -144,25 +120,25 @@ def write_workouts_to_xlsx(parsed_data, backup=True):
             continue
         else:
             celldata_to_write = tpl[1]
-            if not sheet.cell(row=r, column=p.workout_column).value:
+            if not sheet.cell(row=r, column=p.WORKOUT_COLUMN).value:
                 print(f'match FOUND. Writing {exercise_datetime} workout to cell in row {r}')
-                sheet.cell(row=r, column=p.workout_column).value = celldata_to_write
+                sheet.cell(row=r, column=p.WORKOUT_COLUMN).value = celldata_to_write
 
-            elif sheet.cell(row=r, column=p.workout_column).value == celldata_to_write:
+            elif sheet.cell(row=r, column=p.WORKOUT_COLUMN).value == celldata_to_write:
                 print(f"Skipping write for {exercise_datetime}, it's already written to row {r}")
 
-            elif sheet.cell(row=r, column=p.workout_column).value != celldata_to_write:
+            elif sheet.cell(row=r, column=p.WORKOUT_COLUMN).value != celldata_to_write:
                 # package_description: replace this with a more helpful system sometime
                 # if the user wants fuzzy matching, this is the place to implement it
                 print(f'Skipping write for {exercise_datetime}. ', end='')
                 print(f'A *different* value already exists at row {r}. ', end='')
                 print('Perhaps it\'s just a different format or a one-character difference')
                 print("INTENDED WRITE:\n", celldata_to_write)
-                print("EXISTING VALUE:\n", sheet.cell(row=r, column=p.workout_column).value)
+                print("EXISTING VALUE:\n", sheet.cell(row=r, column=p.WORKOUT_COLUMN).value)
                 print("Please verify that you do not have 2 workouts with the same date in Keep")
                 print("Do not run KeepPruner before doing so.")
 
-    wb.save(p.target_path)
+    wb.save(p.TARGET_PATH)
 
     if len(NOT_WRITEABLE) > 0:
         print('Workouts were not written for these dates:', end='\n\t')
@@ -173,7 +149,7 @@ def write_workouts_to_xlsx(parsed_data, backup=True):
 
 
 def is_date_given():
-    with open(p.source_path, 'r') as f:
+    with open(p.SOURCE_PATH, 'r') as f:
         lines = f.readlines()
 
         for line in lines:
@@ -237,10 +213,10 @@ def is_date(string, fuzzy=False):
         return False
 
 
-def return_parsed_data(clean_source=p.source_path):
+def return_parsed_data(clean_source=p.SOURCE_PATH):
     # from CLEAN source file, extracts workouts and parses them
     # (clean means that there's only workout data in there, nothing extraneous).
-    # cleaning is done by return_clean_data_matrix()
+    # cleaning is done by return_list_of_workouts_from_file()
     # returns a list of tuples. One tuple is one workout.
     # in each tuple[0] is the date, which lets us know where to write
     # in each tuple[1] is a string containing a formatted workout
@@ -261,12 +237,7 @@ def return_parsed_data(clean_source=p.source_path):
     # omit comment lines
     days_data = []
     for line in lines:
-        # we want each exercise to start with a capital letter
-        # but capitalize is too clumsy.
-        # It converts "EZ bar to "ez bar", "RC rotations" to "Rc rotations", "+ Wide grip" to "+ wide grip"
-        # so we do it manually
-        # The reason we need this at all is that home workouts are inconsistent in their capitalization
-        # but gym workouts aren't. They should be consistent - each exercise capitalized.
+        # we want each exercise to start with a capital letter (for consistency) but capitalize is too clumsy.
         for ind, c in enumerate(line):
             if c.isalpha():
                 # we don't capitalize the "x" in "3x25 jabs", for example
@@ -275,8 +246,8 @@ def return_parsed_data(clean_source=p.source_path):
                     break
 
         if "home workout" in line.lower():
-            # we log in the xlsx file only that it's a "Home workout: ", we don't need to mention which day it is
-            # input might look like this...
+            # we log in the xlsx file only that it's a "Home workout: ", discarding other title details.
+            # here are example lines that we might expect
             # "Home workout, upper body A:", "Home workout, upper body B:", "Home workout, lower body + abs:"
             days_data.append("Home workout: ")
             continue
@@ -285,16 +256,11 @@ def return_parsed_data(clean_source=p.source_path):
             days_data.append("Shadowboxing: ")
             continue
 
-        # non-conventional workouts, like "Some arm and shoulder work.\nEst ?? mins"
-        # can result in double full stops.
-        line = line.replace('..', '.')
+        # replace accidental double fullstops.
+        # line = line.replace('..', '.')
         # user might add a semi-colon to an exercise line.
         line = line.replace(';', '.')
-        # gym workout exercises are always capitalized, but home workouts may not be
-        # we want consistency across workout types, so each exercise is capitalized.
-        if len(line) > 3 and line.startswith(' '):
-            # account for user error in data entry
-            line = line.lstrip(' ')
+        # line = line.lstrip(' ')
 
         if line.startswith(('/', '(', '\n')):
             continue
@@ -316,33 +282,27 @@ def return_parsed_data(clean_source=p.source_path):
             # change from '; Est 67 mins' to '. Est 67 mins'
             days_data[-2] = days_data[-2].replace('; ', '. ')
 
-            # clean date line, then add a tuple of (date, workout string)
-            # largely historical. Was intended for datelines like "01 Jan, day 2"
-            # where day 2 would be the 2nd workout of the week
-            days_data[0] = re.sub(re.compile(r', day \d'), '', days_data[0])
-            days_data[0] = re.sub(re.compile('(,)? off day'), '', days_data[0])
-            days_data[0] = days_data[0].replace(';', '')
-            days_data[0] = days_data[0].rstrip()
+            # remove fluff from date line (aka the note's title)
+            date_line = days_data[0]
+            date_line = re.sub(re.compile(r', day \d'), '', date_line)
+            date_line = re.sub(re.compile('(,)? off day'), '', date_line)
+            date_line = date_line.replace(';', '').rstrip()
 
-            # account for user error in workout entry
-            # (accidental double spaces do happen)
+            # final cleanup
             # then append as tuple, where tpl[0] is the date, and tpl[1] the workout string
-            parsed_data.append(
-                (days_data[0], ''.join(days_data[1:]).replace('  ', ' ').replace(' .', '.').replace('..', '.')))
+            string_workout = ''.join(days_data[1:]).replace('  ', ' ').replace(' .', '.').replace('..', '.')
+            parsed_data.append((date_line, string_workout))
             days_data = []
 
     return parsed_data
 
 
 def strip_num_x_nums(prelim_parse: str) -> str:
-    # legacy. I recommend putting instructions on separate comment "/" lines
-    # given that putting instructions on a separate line is a superior format (it's more legible and intuitive to
-    # separate instructions from exercise lines), this function may eventually be removed
+    # deprecated.
+    # Instead, I recommend putting instructions on separate comment "/" lines, because it's more legible (and practical)
+    # to separate instructions from exercise lines)
 
-    # called by return_parsed_data(...) on each not-empty line in source workout.
     # removes instructions, kilogram range, set and rep counts
-    # however, another user may prefer a different format, as permitted by this function.
-
     # regex to match: 4x7 , 3x5 , 5x6 min , 7x4+, 2x10-12 etc
     set_x_rep_reg = re.compile(r','
                                r'\s*'
@@ -393,10 +353,8 @@ def strip_num_x_nums(prelim_parse: str) -> str:
     return parsed
 
 
-def is_commentline(line):
+def line_is_comment(line):
     # comments exclusively begin with '/' or '('
-    # examples include '/Exhausting' , '(75kg:8,8,8 / 8,8,7)' , '/4x8 is a grinder'
-    # intentionally doesn't catch newlines, because they are handled differently
     if line.startswith('/'):
         return True
     if line.startswith('('):
