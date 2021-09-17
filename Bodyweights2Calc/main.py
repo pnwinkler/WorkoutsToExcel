@@ -8,8 +8,8 @@ import gkeepapi.node
 import openpyxl
 import re
 from datetime import datetime
-import utilities.params as p
-import utilities.utility_functions as uf
+import GKeepToCalc.utilities.params as p
+import GKeepToCalc.utilities.utility_functions as uf
 
 # history_length is the "X" most recent commits to the local file
 # this number of bodyweights will remain (bracketed) in the Keep note

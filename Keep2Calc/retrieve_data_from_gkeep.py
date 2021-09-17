@@ -1,8 +1,8 @@
 # retrieves all entries from https://keep.google.com/u/0/, as logged in user
 # concatenates it, then saves it to desktop as name specified in source_path
 
-from utilities.params import source_path
-import utilities.utility_functions as uf
+from GKeepToCalc.utilities.params import source_path
+import GKeepToCalc.utilities.utility_functions as uf
 
 
 def write_gkeep_data_to_desktop():

@@ -1,4 +1,4 @@
-from utilities.utility_functions import *
+from GKeepToCalc.utilities.utility_functions import *
 
 def test_is_est_xx_mins_line():
     # returns the result of re.search on a given line

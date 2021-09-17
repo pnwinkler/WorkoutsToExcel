@@ -9,8 +9,8 @@
 # then requests user's permission to delete
 
 from datetime import datetime, timedelta
-import utilities.utility_functions as uf
-import utilities.params as p
+import GKeepToCalc.utilities.utility_functions as uf
+import GKeepToCalc.utilities.params as p
 import openpyxl
 import time
 

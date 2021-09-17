@@ -3,8 +3,8 @@ import openpyxl
 import os
 from datetime import datetime
 from dateutil.parser import parse
-import utilities.params as p
-import utilities.utility_functions as uf
+import GKeepToCalc.utilities.params as p
+import GKeepToCalc.utilities.utility_functions as uf
 
 months = [
     'january', 'february', 'march', 'april',

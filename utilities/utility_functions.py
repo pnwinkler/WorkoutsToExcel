@@ -3,7 +3,7 @@ import openpyxl
 import shutil
 import re
 from datetime import datetime
-from utilities.params import *
+from GKeepToCalc.utilities.params import *
 import getpass
 
 
@@ -177,7 +177,7 @@ def login_and_return_keep_obj():
     keep = gkeepapi.Keep()
 
     try:
-        from utilities.credentials import username, password
+        from GKeepToCalc.utilities.credentials import username, password
     except FileNotFoundError:
         # to avoid typing your username each time, change the following line in params.py
         # username = 'YOUR_USERNAME@gmail.com'

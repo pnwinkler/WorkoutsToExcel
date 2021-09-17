@@ -5,9 +5,9 @@
 # this is a limitation of the format for the title of each gkeep note
 # "24 October" for example does not specify a year
 
-import Keep2Calc.retrieve_data_from_gkeep as retrieve
-import Keep2Calc.keep_to_calc as ktc
-import utilities.params as p
+import GKeepToCalc.Keep2Calc.retrieve_data_from_gkeep as retrieve
+import GKeepToCalc.Keep2Calc.keep_to_calc as ktc
+import GKeepToCalc.utilities.params as p
 import sys
 import os
 

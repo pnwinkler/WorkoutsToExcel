@@ -1,5 +1,5 @@
-from Keep2Calc.keep_to_calc import *
-from Keep2Calc.keep2calc_tests.tst_solutions import *
+from GKeepToCalc.Keep2Calc.keep_to_calc import *
+from GKeepToCalc.Keep2Calc.keep2calc_tests.tst_solutions import *
 
 path_to_tests_folder = os.path.join(os.getcwd(), "keep2calc_tests")
 single_workout1_path = os.path.join(path_to_tests_folder, "single_workout1")
