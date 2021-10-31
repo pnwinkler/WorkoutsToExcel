@@ -23,10 +23,10 @@ bw_reg = re.compile(r'(\d{2,3}\.\d\s?,)+'
 
 
 def main():
-    if not uf.target_path_is_xslx():
-        raise ValueError("Target path specified in params.py does not point to xlsx file")
-    if not uf.targetsheet_exists():
-        raise ValueError("Target xlsx does not contain sheet specified in params.py")
+    if not uf.target_path_is_xslx(p.TARGET_PATH):
+        raise ValueError(f"Target path specified in params.py does not point to xlsx file. This is the path\n{p.TARGET_PATH}")
+    if not uf.targetsheet_exists(p.TARGET_PATH):
+        raise ValueError(f"Target xlsx does not contain sheet specified in params.py. This is the path\n{p.TARGET_PATH}")
 
     wb = openpyxl.load_workbook(p.TARGET_PATH)
     sheet = wb[p.TARGET_SHEET]
@@ -72,7 +72,7 @@ def main():
     if num_expected_bodyweights != num_provided_bodyweights:
         print(f"Incorrect number of bodyweights supplied. "
               f"Expected {num_expected_bodyweights} bodyweights in note. Found {num_provided_bodyweights} bodyweights")
-        print("Please correct the bodyweights note. In case of missing values, a question mark is a valid substitute"
+        print("Please correct the bodyweights note. In case of missing values, a question mark is a valid substitute "
               "for a forgotten bodyweight.")
         exit()
 

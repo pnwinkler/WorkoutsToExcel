@@ -114,6 +114,7 @@ def present_deletion_candidates(deletion_candidates):
     Delete? (Y/N)
     '''
     snippet_length = 30
+    print("These are the deletion candidates. They are already written to file, and are older than your specified date range")
     print("\n**DELETION CANDIDATES**")
     header = 'Date\tNote snippet\t\t\t\t\t\tExists in xlsx as...'
     print(header)
@@ -148,14 +149,14 @@ def is_deletion_requested():
 def greet():
     greeting = '\n\t\t\t GKEEP NOTE DELETER \n' + \
                '\tdeletes workout notes from a google keep account up to a given date\n' \
-               '\t*provided they are already written to file* and you give your approval\n' \
+               '\tprovided they are already written to file and you give your approval\n' \
                '\t(Don\'t worry, we\'ll ask you before changing anything)\n'
     print(greeting)
 
 
 def request_end_date():
     print('\tTo start, please enter the date you wish to delete up to in DDMM format')
-    print('\t(if your DDMM > today, we\'ll choose DDMM + YY-1)')
+    print('\t(if your DDMM > today, we\'ll choose DDMM + YY-1, and ask you if that\'s OK)')
     today = datetime.today()
     while True:
         end_date = ''
@@ -189,7 +190,7 @@ def return_note_text_minus_comments(note):
         if "home workout" in line.lower():
             continue
         else:
-            if len(line) > 3:
+            if len(line) > 2:
                 # remove "+" because it's not relevant for comparisons in present_deletion_candidates(...)
                 retstr += line.replace('+ ', '').replace('+', '') + ' '
 
@@ -197,9 +198,9 @@ def return_note_text_minus_comments(note):
 
 
 def main():
-    if not uf.target_path_is_xslx():
+    if not uf.target_path_is_xslx(p.TARGET_PATH):
         raise ValueError("TARGET_PATH in utilities.parameters incorrectly set. It does not point to an xlsx file")
-    if not uf.targetsheet_exists():
+    if not uf.targetsheet_exists(p.TARGET_PATH, p.TARGET_SHEET):
         raise ValueError("TARGET_SHEET in utilities.parameters incorrectly set. Sheet not found in xlsx file")
 
     greet()
@@ -222,6 +223,7 @@ def main():
             unique_note_dates.add(note.title)
 
     if len(note_date_counter) != len(unique_note_dates):
+        offender = None
         for date in note_date_counter:
             if note_date_counter.count(date) > 1:
                 offender = date

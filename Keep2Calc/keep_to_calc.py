@@ -17,13 +17,13 @@ import GKeepToCalc.utilities.utility_functions as uf
 def initial_checks() -> None:
     if not os.path.exists(p.SOURCE_PATH):
         raise FileNotFoundError('source path not found')
-    if not is_date_given():
+    if not is_date_given(p.SOURCE_PATH):
         raise ValueError('No date line found in source file')
     if not os.path.exists(p.TARGET_PATH):
         raise FileNotFoundError('target path not found')
-    if uf.target_path_is_xslx():
-        if not uf.targetsheet_exists():
-            raise ValueError('Error: TARGET_SHEET not found at {}'.format(p.TARGET_PATH))
+    if uf.target_path_is_xslx(p.TARGET_PATH):
+        if not uf.targetsheet_exists(p.TARGET_PATH, p.TARGET_SHEET):
+            raise ValueError(f'Error: TARGET_SHEET "{p.TARGET_SHEET}" not found at {p.TARGET_PATH}')
     else:
         RuntimeError('target file is not xslx. Keep2Calc is not intended for non-xlsx target files.')
 
@@ -135,8 +135,8 @@ def write_workouts_to_xlsx(parsed_data, backup=True):
                 print('Perhaps it\'s just a different format or a one-character difference')
                 print("INTENDED WRITE:\n", celldata_to_write)
                 print("EXISTING VALUE:\n", sheet.cell(row=r, column=p.WORKOUT_COLUMN).value)
-                print("Please verify that you do not have 2 workouts with the same date in Keep")
-                print("Do not run KeepPruner before doing so.")
+                print("Please verify that you do not have 2 workouts with the same date in Keep. This may cause malfunctions")
+                print("Do not run KeepPruner before doing so, as that would trash your workouts.")
 
     wb.save(p.TARGET_PATH)
 
@@ -148,8 +148,8 @@ def write_workouts_to_xlsx(parsed_data, backup=True):
         exit()
 
 
-def is_date_given():
-    with open(p.SOURCE_PATH, 'r') as f:
+def is_date_given(path):
+    with open(path, 'r') as f:
         lines = f.readlines()
 
         for line in lines:

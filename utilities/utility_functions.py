@@ -169,7 +169,7 @@ def is_est_xx_mins_line(line):
     # it's fundamental to how my programs work, and cannot be changed without significant consequence
     # it would also introduce stylistic inconsistencies in the xlsx file,
     # when future workouts are written with a different stylistic standard.
-    est_xx_mins_reg = re.compile(r'(est \d\d(\d)? min)|(est \?\? min)|(est \?\?\? min)', re.IGNORECASE)
+    est_xx_mins_reg = re.compile(r'(est \d(\d)?(\d)? min)|(est \? min)|(est \?\? min)|(est \?\?\? min)', re.IGNORECASE)
     return re.search(est_xx_mins_reg, line)
 
 
@@ -207,17 +207,17 @@ def return_now_as_friendly_datetime():
     return datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
 
-def target_path_is_xslx():
+def target_path_is_xslx(path):
     # returns True if utilities.TARGET_PATH variable points to .xslx file
-    filename, file_extension = os.path.splitext(TARGET_PATH)
+    filename, file_extension = os.path.splitext(path)
     if file_extension == '.xlsx':
         return True
     return False
 
 
-def targetsheet_exists():
-    wb = openpyxl.load_workbook(TARGET_PATH)
-    if TARGET_SHEET in wb.sheetnames:
+def targetsheet_exists(path, target_sheet):
+    wb = openpyxl.load_workbook(path)
+    if target_sheet in wb.sheetnames:
         return True
     else:
         return False
