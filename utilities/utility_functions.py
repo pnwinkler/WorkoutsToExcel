@@ -164,13 +164,28 @@ def return_first_empty_bodyweight_row(sheet, date_column=2, bodyweight_column=3)
     raise ValueError(f"Failed to find empty bodyweight cell. Examined {num_rows_to_check} rows")
 
 
-def is_est_xx_mins_line(line):
+def est_xx_mins_line_in_note_text(note_text) -> bool:
+    return is_est_xx_mins_line(note_text)
+
+
+def is_workout_note(note: gkeepapi.node.Note, raise_error_if_has_xx_line_but_no_date=False) -> bool:
+    print(note.text)
+    print(note.text[5])
+    is_workout = is_est_xx_mins_line(note.text)
+    if is_workout:
+        if raise_error_if_has_xx_line_but_no_date:
+            if not convert_ddmmyyyy_to_datetime(note.title, verbose=False):
+                raise ValueError("The note above has an est xx mins line but no date could be extracted from its title")
+    return is_workout
+
+
+def is_est_xx_mins_line(line) -> bool:
     # I decided against putting this regex in utilities.params because
     # it's fundamental to how my programs work, and cannot be changed without significant consequence
     # it would also introduce stylistic inconsistencies in the xlsx file,
     # when future workouts are written with a different stylistic standard.
     est_xx_mins_reg = re.compile(r'(est \d(\d)?(\d)? min)|(est \? min)|(est \?\? min)|(est \?\?\? min)', re.IGNORECASE)
-    return re.search(est_xx_mins_reg, line)
+    return bool(re.search(est_xx_mins_reg, line))
 
 
 def login_and_return_keep_obj():
@@ -193,6 +208,7 @@ def login_and_return_keep_obj():
 
 def retrieve_notes(keep):
     # retrieves a list of not trashed Note objects
+    assert isinstance(keep, gkeepapi.Keep), "Invalid object passed in to retrieve_notes function"
     print('Retrieving notes')
     # gnotes = keep.all()
     # gnotes = keep.find(pinned=True, archived=False, trashed=False)
