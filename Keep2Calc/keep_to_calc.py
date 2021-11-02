@@ -4,21 +4,17 @@ import os
 from datetime import datetime
 from dateutil.parser import parse
 from typing import List
+import gkeepapi.node
 import GKeepToCalc.utilities.params as p
 import GKeepToCalc.utilities.utility_functions as uf
 
-# months = [
-#     'january', 'february', 'march', 'april',
-#     'may', 'june', 'july', 'august', 'september',
-#     'october', 'november', 'december'
-# ]
 
-
-def initial_checks() -> None:
-    if not os.path.exists(p.SOURCE_PATH):
-        raise FileNotFoundError('source path not found')
-    if not is_date_given(p.SOURCE_PATH):
-        raise ValueError('No date line found in source file')
+def initial_checks(notes_lst: List[gkeepapi.node.Note]) -> None:
+    # oddly, a the list of notes is a list of Notes, but each Note is a List object
+    for note in notes_lst:
+        if not isinstance(note, gkeepapi.node.List) and not isinstance(note, gkeepapi.node.Node):
+            raise ValueError("Invalid type found in notes list. Expected type gkeepapi objects, but found"
+                             f"{type(note)}")
     if not os.path.exists(p.TARGET_PATH):
         raise FileNotFoundError('target path not found')
     if uf.target_path_is_xslx(p.TARGET_PATH):
@@ -26,52 +22,6 @@ def initial_checks() -> None:
             raise ValueError(f'Error: TARGET_SHEET "{p.TARGET_SHEET}" not found at {p.TARGET_PATH}')
     else:
         RuntimeError('target file is not xslx. Keep2Calc is not intended for non-xlsx target files.')
-
-
-def return_list_of_workouts_from_file(source=p.SOURCE_PATH) -> List[List[str]]:
-    # reads lines from path, removing anything which isn't a workout
-    # returns a list of workouts, where each "workout" is the unfiltered
-    # list of all lines thought to be part of that workout note
-
-    # a list of lists, containing all workouts, each saved as a list
-    lines_to_write_matrix = []
-    # days_data is a list of all lines in one workout
-    days_data = []
-    with open(source, 'r') as f:
-        lines = f.readlines()
-
-    start_appending = False
-    for line in lines:
-        # how we identify and copy workouts:
-        # 1) start copying at a dateline. We append each line to days_data
-        # 2) we append up to and including the next est xx mins line
-        #   2ii) If we encounter another dateline before the est xx mins line,
-        #   then we discard days_data (excepting that new dateline),
-        #   as it did not match our workout format.
-        #   Next loop, we then repeat from stage 2 onwards
-        # 3) we append the complete workout in days_data to lines_to_write_matrix
-        # 4) once all lines are read, we return lines_to_write_matrix
-
-        if not start_appending:
-            if is_dateline(line):
-                # stage 1)
-                start_appending = True
-                days_data.append(line)
-                continue
-        else:
-            if is_dateline(line):
-                # stage 2ii)
-                days_data = [line]
-            else:
-                # stage 2)
-                days_data.append(line)
-                if uf.is_est_xx_mins_line(line):
-                    # stage 3)
-                    start_appending = False
-                    lines_to_write_matrix.append(days_data)
-                    days_data = []
-
-    return lines_to_write_matrix
 
 
 def write_workouts_to_xlsx(parsed_data, backup=True):
@@ -95,7 +45,7 @@ def write_workouts_to_xlsx(parsed_data, backup=True):
     for tpl in parsed_data:
         # clean date line so that datetime can create datetime object
         # exercise_datetime will be used to determine which cell to enter data into
-        # cleaning necessary because date line was processed by return_parsed_data()
+        # cleaning necessary because date line was processed by parse_workout_notes()
         exercise_datetime = tpl[0]
         print_friendly_datetime = exercise_datetime[:2] + '-' + exercise_datetime[2:]
 
@@ -135,7 +85,8 @@ def write_workouts_to_xlsx(parsed_data, backup=True):
                 print('Perhaps it\'s just a different format or a one-character difference')
                 print("INTENDED WRITE:\n", celldata_to_write)
                 print("EXISTING VALUE:\n", sheet.cell(row=r, column=p.WORKOUT_COLUMN).value)
-                print("Please verify that you do not have 2 workouts with the same date in Keep. This may cause malfunctions")
+                print(
+                    "Please verify that you do not have 2 workouts with the same date in Keep. This may cause malfunctions")
                 print("Do not run KeepPruner before doing so, as that would trash your workouts.")
 
     wb.save(p.TARGET_PATH)
@@ -213,86 +164,85 @@ def is_date(string, fuzzy=False):
         return False
 
 
-def return_parsed_data(clean_source=p.SOURCE_PATH):
-    # from CLEAN source file, extracts workouts and parses them
-    # (clean means that there's only workout data in there, nothing extraneous).
-    # cleaning is done by return_list_of_workouts_from_file()
-    # returns a list of tuples. One tuple is one workout.
+def capitalize_selectively(line) -> str:
+    for ind, c in enumerate(line):
+        if c.isalpha():
+            # we don't capitalize the "x" in "3x25 jabs", for example
+            if not re.search(r'\dx\d\d', line):
+                return line[:ind] + line[ind].upper() + line[ind + 1:]
+    return line
+
+
+def line_is_comment(line) -> bool:
+    # comments exclusively begin with '/' or '('
+    if line.startswith('/'):
+        return True
+    if line.startswith('('):
+        return True
+    return False
+
+
+def parse_workout_notes(workout_notes: List[gkeepapi.node.Note]) -> List[tuple]:
+    # given a list of workout notes, extract workouts and parse them
+    # returns a list of tuples, each representing one workout.
     # in each tuple[0] is the date, which lets us know where to write
     # in each tuple[1] is a string containing a formatted workout
-    # if you want to remove anything from the title, like ", day 2", this is the place
+    for note in workout_notes:
+        assert uf.est_xx_mins_line_in_note_text(note.text), \
+            "parse_workout_notes() received a note without an est xx mins" \
+            "line. This function accepts workout notes only, which are " \
+            "all expected to have an est xx mins line"
+        assert is_date(note.title), "parse_workout_notes() received a note without a date in its title. It cannot work " \
+                                    "without this."
 
-    # parsed_data contains all workouts
     parsed_data = []
+    for note in workout_notes:
+        # remove fluff from note title
+        parsed_title = re.sub(re.compile(r', day \d'), '', note.title)
+        parsed_title = re.sub(re.compile('(,)? off day'), '', parsed_title)
 
-    with open(clean_source, 'r') as f:
-        lines = f.readlines()
+        # strip lines, and drop empty lines and comment lines.
+        note.text = [line.strip() for line in note.text.split('\n')
+                     if line
+                     and not (line_is_comment(line) or line.startswith('\n'))]
 
-    # account for user error: strip leading space before or after an exercise
-    for i in range(len(lines)):
-        lines[i] = lines[i].lstrip(' ').rstrip(' ')
+        one_workouts_lines = []
+        for ind, line in enumerate(note.text):
+            parsed_line = line
+            # capitalize each letter, except under certain conditions
+            parsed_line = capitalize_selectively(parsed_line)
 
-    # convert from source format to storage format
-    # replace ('+','\n'). Append ';'. Remove fluff like '4x7', '3 sets'
-    # omit comment lines
-    days_data = []
-    for line in lines:
-        # we want each exercise to start with a capital letter (for consistency) but capitalize is too clumsy.
-        for ind, c in enumerate(line):
-            if c.isalpha():
-                # we don't capitalize the "x" in "3x25 jabs", for example
-                if not re.search(r'\dx\d\d', line):
-                    line = line[:ind] + line[ind].upper() + line[ind + 1:]
-                    break
+            # fix common user entry errors.
+            parsed_line = parsed_line.replace(';', '.')
+            parsed_line = parsed_line.replace('..', '.')
+            parsed_line = parsed_line.replace(' .', '.')
+            parsed_line = parsed_line.replace(',,', '.')
 
-        if "home workout" in line.lower():
-            # we log in the xlsx file only that it's a "Home workout: ", discarding other title details.
-            # here are example lines that we might expect
-            # "Home workout, upper body A:", "Home workout, upper body B:", "Home workout, lower body + abs:"
-            days_data.append("Home workout: ")
-            continue
+            # in every line, we append a semi-colon, as the separator between exercises
+            parsed_line = parsed_line.replace('\n', '; ')
 
-        if "shadowboxing" in line.lower():
-            days_data.append("Shadowboxing: ")
-            continue
+            # the "+" symbol indicates an exercise line. We don't save it.
+            parsed_line = parsed_line.replace('+ ', '')
+            parsed_line = parsed_line.replace('+', '')
 
-        # replace accidental double fullstops.
-        # line = line.replace('..', '.')
-        # user might add a semi-colon to an exercise line.
-        line = line.replace(';', '.')
-        # line = line.lstrip(' ')
+            # hard-coded replacement strings. This is personal preference.
+            if "home workout" in line.lower():
+                # in such cases, we deliberately discard title details.
+                # The following lines, for example, would be replaced by the string below
+                # "Home workout, upper body A:", "Home workout, upper body B:", "Home workout, lower body + abs:"
+                parsed_line = "Home workout: "
+            if "shadowboxing" in line.lower():
+                parsed_line = "Shadowboxing: "
 
-        if line.startswith(('/', '(', '\n')):
-            continue
+            parsed_line = strip_num_x_nums(parsed_line)
+            # add that cleaned line to the workout's lines
+            one_workouts_lines.append(parsed_line)
 
-        elif line.startswith('+'):
-            a = line.replace('\n', '') + '; '
-            a = a.replace('+ ', '')
-            a = a.replace('+', '')
-            days_data.append(strip_num_x_nums(a))
-
-        else:
-            a = line.replace('\n', '') + '; '
-            days_data.append(strip_num_x_nums(a))
-
-        if uf.is_est_xx_mins_line(line):
-            # remove 'Est 67 mins;' semicolon
-            days_data[-1] = days_data[-1].replace('; ', '')
-
-            # change from '; Est 67 mins' to '. Est 67 mins'
-            days_data[-2] = days_data[-2].replace('; ', '. ')
-
-            # remove fluff from date line (aka the note's title)
-            date_line = days_data[0]
-            date_line = re.sub(re.compile(r', day \d'), '', date_line)
-            date_line = re.sub(re.compile('(,)? off day'), '', date_line)
-            date_line = date_line.replace(';', '').rstrip()
-
-            # final cleanup
-            # then append as tuple, where tpl[0] is the date, and tpl[1] the workout string
-            string_workout = ''.join(days_data[1:]).replace('  ', ' ').replace(' .', '.').replace('..', '.')
-            parsed_data.append((date_line, string_workout))
-            days_data = []
+        # append the title and formatted workout contents.
+        exercises_str = '; '.join(one_workouts_lines[:-1])
+        est_xx_mins_str = one_workouts_lines[-1]
+        final_workout_text = exercises_str + ". " + est_xx_mins_str #+ "."
+        parsed_data.append((parsed_title, final_workout_text))
 
     return parsed_data
 
@@ -351,12 +301,3 @@ def strip_num_x_nums(prelim_parse: str) -> str:
         parsed = re.sub(num_hyphen_num_sets_reg2, '', parsed)
 
     return parsed
-
-
-def line_is_comment(line):
-    # comments exclusively begin with '/' or '('
-    if line.startswith('/'):
-        return True
-    if line.startswith('('):
-        return True
-    return False
