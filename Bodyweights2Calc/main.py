@@ -25,7 +25,7 @@ bw_reg = re.compile(r'(\d{2,3}\.\d\s?,)+'
 def main():
     if not uf.target_path_is_xslx(p.TARGET_PATH):
         raise ValueError(f"Target path specified in params.py does not point to xlsx file. This is the path\n{p.TARGET_PATH}")
-    if not uf.targetsheet_exists(p.TARGET_PATH):
+    if not uf.targetsheet_exists(p.TARGET_PATH, p.TARGET_SHEET):
         raise ValueError(f"Target xlsx does not contain sheet specified in params.py. This is the path\n{p.TARGET_PATH}")
 
     wb = openpyxl.load_workbook(p.TARGET_PATH)
