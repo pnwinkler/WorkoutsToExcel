@@ -25,7 +25,7 @@ bw_reg = re.compile(r'(\d{2,3}\.\d\s?,)+'
 def main():
     if not uf.target_path_is_xslx(p.TARGET_PATH):
         raise ValueError(f"Target path specified in params.py does not point to xlsx file. This is the path\n{p.TARGET_PATH}")
-    if not uf.targetsheet_exists(p.TARGET_PATH):
+    if not uf.targetsheet_exists(p.TARGET_PATH, p.TARGET_SHEET):
         raise ValueError(f"Target xlsx does not contain sheet specified in params.py. This is the path\n{p.TARGET_PATH}")
 
     wb = openpyxl.load_workbook(p.TARGET_PATH)
@@ -45,6 +45,7 @@ def main():
         today -= timedelta(days=1)
 
     end_row = uf.find_row_of_datecell_given_datetime(sheet, today, date_column=p.DATE_COLUMN)
+    assert end_row != -1, "Failed to find the appropriate end row in the xlsx file"
     if sheet.cell(end_row, p.BODYWEIGHT_COLUMN).value:
         print("Value already written for today. Exiting program")
         exit()
@@ -97,7 +98,7 @@ def return_history(bw_note, history_length) -> str:
     # "history" is a parenthesized string containing a number of bodyweights
     # as specified by history_length
     bw_str = bw_note.text.replace('(', '').replace(')', '')
-    all_bws_lst = bw_str.split(',')  # [83, 82.8, 83.5, ' ']
+    all_bws_lst = [num.strip() for num in bw_str.split(',') if num.strip()]  # get list of bodyweights
     try:
         all_bws_lst.remove(' ')
     except ValueError:
@@ -106,9 +107,12 @@ def return_history(bw_note, history_length) -> str:
     if history_length == 0:
         history_length = 1
 
-    # note that history captures leading spaces, like so:
-    # ['82.3', ' 84.5', ' ?', ' 85']
-    history = all_bws_lst[-history_length:]
+    try:
+        history = all_bws_lst[-history_length:]
+    except IndexError:
+        # history greater than the number of bodyweights in Note
+        history = all_bws_lst
+
     for ind, h in enumerate(history):
         history[ind] = history[ind].replace(' ', '')
 
