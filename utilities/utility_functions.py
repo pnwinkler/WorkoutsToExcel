@@ -3,6 +3,7 @@ import openpyxl
 import shutil
 import re
 from datetime import datetime
+from typing import Union, List
 from GKeepToCalc.utilities.params import *
 import getpass
 
@@ -28,11 +29,18 @@ def backup_targetpath():
         shutil.copy(TARGET_PATH, backup_full_path)
 
 
-def convert_ddmmyyyy_to_datetime(date_str, verbose=True):
+def convert_ddmmyyyy_to_datetime(date_str: Union[str, datetime],
+                                 verbose=True,
+                                 disallow_future_dates=True,
+                                 raise_on_failure=False):
+    # todo: rename this function and add assertions. This accepts strings like "14 November", contrary to func name
     # take string in form DDMMYYYY and return its datetime equivalent
     # also accepts strings like DDMONTHYYY where MONTH is a string
     # tolerant of spaces, newlines, semi-colons
     # returns -1 if effort fails
+    if isinstance(date_str, datetime):
+        return date_str
+
     date_str = date_str.replace('\n', '').replace(';', '').replace(' ', '').replace('.', '')
 
     # if not date_str.isdigit():
@@ -54,11 +62,12 @@ def convert_ddmmyyyy_to_datetime(date_str, verbose=True):
                     # Possible causes: UTF 8 bullshit; unconverted data like "day 1"
                     if verbose:
                         print('Error in utilities convert_ddmm_to_datetime:', e)
+                    if raise_on_failure:
+                        raise e
                     return -1
     now = datetime.now()
-    datetime_obj = datetime_obj.replace(year=now.year)
-    if now < datetime_obj:
-        # exercise would be in the future, so we assume it's from last year
+    if now < datetime_obj and disallow_future_dates:
+        # datetime is in the future, but future date is not wanted. Return previous year.
         return datetime_obj.replace(year=now.year - 1)
     return datetime_obj
 
@@ -78,6 +87,25 @@ def count_empty_cells_between_rows(sheet, start_row, end_row, cols_lst: list):
                 count += 1
                 break
     return count
+
+
+def return_raw_note_date(note: gkeepapi.node.Note, raise_if_no_date=False) -> Union[str, datetime]:
+    assert isinstance(note, gkeepapi.node.Note), "return_raw_note_date did not receive a Note object"
+    title = note.title
+    if raise_if_no_date and not title:
+        raise ValueError("No date found in expected place (note title)")
+    return note.title
+
+
+def return_note_datetime(note: gkeepapi.node.Note, raise_if_no_date=False, disallow_future_dates=True) -> datetime:
+    assert isinstance(note, gkeepapi.node.Note), "return_raw_note_date did not receive a Note object"
+    raw_date = return_raw_note_date(note=note, raise_if_no_date=raise_if_no_date)
+    # todo: parse
+    date = convert_ddmmyyyy_to_datetime(raw_date,
+                                        disallow_future_dates=disallow_future_dates,
+                                        raise_on_failure=True)
+    return date
+
 
 
 def find_row_of_datecell_given_datetime(sheet, datetime_target, date_column=2) -> int:
@@ -164,24 +192,37 @@ def return_first_empty_bodyweight_row(sheet, date_column=2, bodyweight_column=3)
     raise ValueError(f"Failed to find empty bodyweight cell. Examined {num_rows_to_check} rows")
 
 
-def is_est_xx_mins_line(line):
+def est_xx_mins_line_in_note_text(note_text) -> bool:
+    return is_est_xx_mins_line(note_text)
+
+
+def is_workout_note(note: gkeepapi.node.Note, raise_error_if_has_xx_line_but_no_date=False) -> bool:
+    is_workout = is_est_xx_mins_line(note.text)
+    if is_workout:
+        if raise_error_if_has_xx_line_but_no_date:
+            if not convert_ddmmyyyy_to_datetime(note.title, verbose=False):
+                raise ValueError("The note above has an est xx mins line but no date could be extracted from its title")
+    return is_workout
+
+
+def is_est_xx_mins_line(line) -> bool:
     # I decided against putting this regex in utilities.params because
     # it's fundamental to how my programs work, and cannot be changed without significant consequence
     # it would also introduce stylistic inconsistencies in the xlsx file,
     # when future workouts are written with a different stylistic standard.
     est_xx_mins_reg = re.compile(r'(est \d(\d)?(\d)? min)|(est \? min)|(est \?\? min)|(est \?\?\? min)', re.IGNORECASE)
-    return re.search(est_xx_mins_reg, line)
+    return bool(re.search(est_xx_mins_reg, line))
 
 
-def login_and_return_keep_obj():
+def login_and_return_keep_obj() -> gkeepapi.Keep:
     keep = gkeepapi.Keep()
 
     try:
         from GKeepToCalc.utilities.credentials import username, password
     except FileNotFoundError:
-        # to avoid typing your username each time, change the following line in params.py
-        # username = 'YOUR_USERNAME@gmail.com'
         username = input('Google Keep username: ')
+        print("You can save your username as an environment variable, which can save you from typing your username "
+              "each time (see utilities/credentials.py)")
 
     # getpass obscures the password as it's entered
     if password is None:
@@ -191,8 +232,9 @@ def login_and_return_keep_obj():
     return keep
 
 
-def retrieve_notes(keep):
+def retrieve_notes(keep) -> List[gkeepapi.node.Note]:
     # retrieves a list of not trashed Note objects
+    assert isinstance(keep, gkeepapi.Keep), "Invalid object passed in to retrieve_notes function"
     print('Retrieving notes')
     # gnotes = keep.all()
     # gnotes = keep.find(pinned=True, archived=False, trashed=False)
