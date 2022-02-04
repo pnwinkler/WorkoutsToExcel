@@ -1,6 +1,5 @@
-# removes workout Notes from Keep that are already written
-# to the xlsx file specified in utilities.params.TARGET_PATH,
-# up to a given, user-provided date
+# this script removes workout Notes from Keep that are already written
+# to the xlsx file specified in utilities.params.TARGET_PATH, up to a given, user-provided date
 
 # How it works:
 # retrieves and processes all Note objects at once,
@@ -8,105 +7,93 @@
 # both in TARGET_PATH, and in the Keep note,
 # then requests user's permission to delete
 
+from typing import Dict, List
 from datetime import datetime, timedelta
 import GKeepToCalc.utilities.utility_functions as uf
 import GKeepToCalc.utilities.params as p
 import openpyxl
+import gkeepapi
 import time
-
-# key is date (particular format!!), value is value found in xlsx file for that date
-date_xlsx_snippet_dict = dict()
+# todo: make the date_xlsx_snippet_dict less flimsy and unintuitive
 
 
-def is_deletion_candidate(sheet, note, end_date):
-    # returns True if the Keep object that "note" refers to may be deleted, False otherwise
-    # takes "sheet" in xlsx file within which to search for workout entry
-    # takes "note", a Note object *copied from* Keep (not the actual online object)
-    # takes "end_date" as a datetime object indicating the last date we may delete up to (inclusive)
-    # deletion criteria are:
-    # 1) date of note >= end_date
-    # 2) note is a workout or cardio note
-    # 3) note is already written to the food eaten diet xlsx file
-    # 4) note is written to the correct date in xlsx file
+def is_deletion_candidate(date_xlsx_snippet_dict: Dict[str, str], note: gkeepapi.node.Note, end_date: datetime)\
+        -> bool:
+    """
+    for a given Note, return whether it is already written to the xlsx file, for the correct date, as a bool
+    :param date_xlsx_snippet_dict: a dictionary where each key is a workout's date, and each value its string
+    representation in the target xlsx file.
+    :param note: the Note to be examined / searched for. Todo: wording
+    :param end_date: the cutoff point, after which we return False regardless of the Note or xlsx's value
+    """
+    # We use these criteria:
+    #   4) note is written to the correct date in xlsx file
 
-    # 1)
-    # note that second, minutes etc are not stored in either the xlsx file,
-    # or in the value returned by the function below.
-    # Therefore, they will not ruin the following simplistic comparison
-
-    if note.title.isalpha():
-        # not a date
+    # 1) check if valid workout note
+    if note.title.isalpha() or not uf.is_workout_note(note):
+        # not a date or not a workout
         return False
 
+    # expecting a Note title like "14 November", we append the current year, and convert that string to datetime.
+    # However, if the date is in the future, we use last year as the year.
     note_date = note.title + str(datetime.now().year)
-    # this function converts the string to datetime,
-    # and ensures that note_date is not set to a future date
-    note_date = uf.convert_ddmmyyyy_to_datetime(note_date, verbose=False)
+    note_date = uf.convert_string_to_datetime(note_date, verbose=False, disallow_future_dates=True)
 
     if note_date == -1:
         # failed to convert. note_date is bad format.
         return False
 
+    # 2) do not flag as deletion candidate beyond cutoff
     if note_date >= end_date:
         return False
 
-    # 2)
-    is_workout_note = False
-    if uf.is_est_xx_mins_line(note.text):
-        is_workout_note = True
-
-    if not is_workout_note:
-        return False
-
-    # find date cell in xlsx matching the date of our Note object
-    row = uf.find_row_of_datecell_given_datetime(sheet, note_date, p.DATE_COLUMN)
-    if row == -1:
-        # matching date cell not found.
-        # Therefore, we assume workout is not written (Keep2Calc does not write on lines with empty date cells)
-        return False
-
-    # 3), 4)
-    # check that the workout is written in the corresponding row, in the column we expect
-    cell_value = sheet.cell(row=row, column=p.WORKOUT_COLUMN).value
-    if isinstance(cell_value, str):
-        if uf.is_est_xx_mins_line(cell_value.lower()):
-            # workout is probably written. This is a crummy way to check though
-            # it will break if I ever change how est_xx_mins lines are stored in the xlsx file
-            # this function checks that the est_xx_mins phrase appears anywhere in the line
-            date_xlsx_snippet_dict[get_printable_note_date(note)] = cell_value
-        else:
+    # 3) is note already written to the food eaten diet xlsx file?
+    date_key = uf.return_raw_note_date(note)
+    date_key = uf.get_pretty_date(date_key)
+    try:
+        xlsx_value = date_xlsx_snippet_dict[date_key]
+        if not xlsx_value:
+            # there's a value, but it's the empty string or None type
             return False
-
-    if cell_value is None:
+    except KeyError:
+        # no entry for that date
         return False
 
     return True
 
 
-def get_printable_note_date(note):
-    # used for printing deletion options, and as a dictionary key
-    # first 2 items of split will be DD or MONTH
-    split = note.title.split()
-    # if there's a single digit, like "7", lead it with 0.
-    split = ["0" + x if len(x) < 2 else x for x in split]
+def retrieve_xlsx_workout_snippets(sheet) -> Dict[str, str]:
+    # returns a dictionary, where the key is a date, and the value that date's value in the workout column of the
+    # passed in sheet
+    today = datetime.now()
+    max_row = uf.find_row_of_datecell_given_datetime(sheet=sheet, datetime_target=today)
+    min_row = max_row - 365 # note that this may not retrieve a year of data, e.g. due to empty rows
+    if min_row < 1:
+        min_row = 1
 
-    if split[0].isdigit():
-        # example: ['13', January] or ['07', 'November']
-        date = split[0] + split[1]
-    else:
-        date = split[1] + split[0]
+    xlsx_snippets = dict()
 
-    # abbreviate date, to something like '13 Jan' or '07 Mar'
-    date = date[:2] + ' ' + date[2:5]
-    return date
+    for row in sheet.iter_rows(min_row=min_row,
+                               min_col=p.DATE_COLUMN,
+                               max_col=p.WORKOUT_COLUMN,
+                               max_row=max_row, values_only=True):
+        date = uf.convert_string_to_datetime(row[p.DATE_COLUMN])
+        date = uf.get_pretty_date(date)
+        workout = row[p.WORKOUT_COLUMN]
+        if date:
+            xlsx_snippets[date] = workout
+
+    return xlsx_snippets
 
 
-def present_deletion_candidates(deletion_candidates):
-    # param: deletion_candidates is a list of note objects
-    # (those objects are valid candidates for trashing, in the Keep app)
-    # function: gives user an overview of these notes, so he can decide whether to proceed with trashing
-    # format is as follows:
+def present_deletion_candidates(deletion_candidates: List[gkeepapi.node.Note],
+                                date_xlsx_snippet_dict: Dict[str, str]):
     '''
+    give user an overview of these notes, so (s)he can decide whether to proceed with trashing. Format follows below:
+    :param deletion_candidates: a list of note objects that are considered suitable for trashing, in Keep.
+    :param date_xlsx_snippet_dict: a dictionary where each key is a workout's date, and each value its string
+    representation in the target xlsx file.
+
     date    note to be deleted snippet      snippet from xlsx
     ...     ...                             ...
     ...     ...                             ...
@@ -114,26 +101,34 @@ def present_deletion_candidates(deletion_candidates):
     Delete? (Y/N)
     '''
     snippet_length = 30
-    print("These are the deletion candidates. They are already written to file, and are older than your specified date range")
+    print("These are the deletion candidates. They are already written to file, and are older than your specified "
+          "date range")
     print("\n**DELETION CANDIDATES**")
     header = 'Date\tNote snippet\t\t\t\t\t\tExists in xlsx as...'
     print(header)
 
     for note in deletion_candidates:
         # comment lines don't appear in the xlsx file, so they're unhelpful for side-by-side comparison
-        note_snippet = return_note_text_minus_comments(note).replace('\n', ' ')
+        note_snippet = return_note_text_minus_comments(note, remove_plus_signs=True).replace('\n', ' ')
         if len(note_snippet) < (snippet_length):
-            # This makes short lines fit into neat columns
-            # 20 is an arbitrary number.
+            # This makes short lines fit into neat columns. 20 is an arbitrary number.
             note_snippet += ' ' * 20
         note_snippet = note_snippet[:snippet_length]
 
-        print(get_printable_note_date(note), end='')
-        print('\t' + note_snippet, end='')
-        # give snippet from xlsx matching date of note
-        # +1 to xlsx snippet length because the xlsx format separates exercises with ";"
-        # By adding +1, the 2 kinds of snippet more frequently terminate on the same character.
-        print('\t' + date_xlsx_snippet_dict[get_printable_note_date(note)][:snippet_length + 1].rstrip() + '...')
+        # NOTE: we expect the note dates to be present, and in their titles
+        note_date = uf.return_note_datetime(note)
+        printable_date = uf.get_pretty_date(note_date)
+
+        # a snippet from the xlsx. We add 1 because it makes the 2 kinds of snippet more frequently terminate on the
+        # same character, despite their different formats (mostly the difference is semi-colons).
+        xlsx_snippet = date_xlsx_snippet_dict[printable_date][:snippet_length + 1].rstrip()
+
+        # print side by side comparisons
+        print(f'{printable_date}'
+              f'\t '
+              f'{note_snippet}'
+              f'\t '
+              f'{xlsx_snippet} ...')
 
     print()
 
@@ -180,7 +175,7 @@ def request_end_date():
             return target_date
 
 
-def return_note_text_minus_comments(note):
+def return_note_text_minus_comments(note: gkeepapi.node.Note, remove_plus_signs=False) -> str:
     # given a note, return its text as a string, with comment lines omitted
     retstr = ''
     for line in note.text.split('\n'):
@@ -190,7 +185,7 @@ def return_note_text_minus_comments(note):
         if "home workout" in line.lower():
             continue
         else:
-            if len(line) > 2:
+            if len(line) > 2 and remove_plus_signs:
                 # remove "+" because it's not relevant for comparisons in present_deletion_candidates(...)
                 retstr += line.replace('+ ', '').replace('+', '') + ' '
 
@@ -207,33 +202,29 @@ def main():
     end_date = request_end_date()
     keep = uf.login_and_return_keep_obj()
     notes = uf.retrieve_notes(keep)
-    deletion_candidates = []
 
     wb = openpyxl.load_workbook(p.TARGET_PATH)
     sheet = wb[p.TARGET_SHEET]
 
     # precaution against loss of data from mis-titled notes.
     # catch duplicate dates (user error) by comparing the list of note dates to the set of note dates
-    note_date_counter = []
-    unique_note_dates = set()
+    note_dates = []
+    deletion_candidates = []
+    xlsx_snippets = retrieve_xlsx_workout_snippets(sheet)
     for note in notes:
-        if is_deletion_candidate(sheet, note, end_date):
+        if is_deletion_candidate(date_xlsx_snippet_dict=xlsx_snippets, note=note, end_date=end_date):
             deletion_candidates.append(note)
-            note_date_counter.append(note.title)
-            unique_note_dates.add(note.title)
+            note_dates.append(note.title)
 
-    if len(note_date_counter) != len(unique_note_dates):
-        offender = None
-        for date in note_date_counter:
-            if note_date_counter.count(date) > 1:
-                offender = date
+    if len(note_dates) != len(set(note_dates)):
+        offenders = [date for date in note_dates if note_dates.count(date) > 1]
         raise ValueError("Two workout notes with the same date have been found. "
                          "Given that each date may have only 1 workout written to it, "
                          "deletion would result in loss of unwritten data. "
                          "Please either correct the date of one, or concatenate them into one note.\n"
-                         f"Offender = {offender}")
+                         f"Offender = {offenders}")
 
-    present_deletion_candidates(deletion_candidates)
+    present_deletion_candidates(deletion_candidates=deletion_candidates, date_xlsx_snippet_dict=xlsx_snippets)
 
     if is_deletion_requested():
         certain = input("Press 'C' to confirm deletion. Any other key to undo: ").lower()
