@@ -3,22 +3,37 @@ import openpyxl
 import os
 from datetime import datetime
 from dateutil.parser import parse
-from typing import List
+from dataclasses import dataclass
+from typing import Dict, List, Union, Tuple
+import gkeepapi.node
 import GKeepToCalc.utilities.params as p
 import GKeepToCalc.utilities.utility_functions as uf
 
-# months = [
-#     'january', 'february', 'march', 'april',
-#     'may', 'june', 'july', 'august', 'september',
-#     'october', 'november', 'december'
-# ]
+# todo: add option to have year in note title, and to use that if provided?
+# todo: add tests. Make it clearer what each of these functions does.
 
 
-def initial_checks() -> None:
-    if not os.path.exists(p.SOURCE_PATH):
-        raise FileNotFoundError('source path not found')
-    if not is_date_given(p.SOURCE_PATH):
-        raise ValueError('No date line found in source file')
+@dataclass
+class ParsedWorkout:
+    # this will hold partially processed data that isn't ready to write yet (it still needs a target row).
+    title_datetime: datetime
+    data: str
+
+    def __repr__(self):
+        return f"{self.title_datetime}: {self.data}"
+
+@dataclass
+class DataToWrite(ParsedWorkout):
+    # this will hold fully processed data that's validated and ready to write
+    target_row: int
+
+
+def initial_checks(notes_lst: List[gkeepapi.node.Note]) -> None:
+    # oddly, the list of notes is a list of Notes, but each Note is a List object
+    for note in notes_lst:
+        if not isinstance(note, gkeepapi.node.List) and not isinstance(note, gkeepapi.node.Node):
+            raise ValueError("Invalid type found in notes list. Expected type gkeepapi objects, but found"
+                             f"{type(note)}")
     if not os.path.exists(p.TARGET_PATH):
         raise FileNotFoundError('target path not found')
     if uf.target_path_is_xslx(p.TARGET_PATH):
@@ -28,57 +43,188 @@ def initial_checks() -> None:
         RuntimeError('target file is not xslx. Keep2Calc is not intended for non-xlsx target files.')
 
 
-def return_list_of_workouts_from_file(source=p.SOURCE_PATH) -> List[List[str]]:
-    # reads lines from path, removing anything which isn't a workout
-    # returns a list of workouts, where each "workout" is the unfiltered
-    # list of all lines thought to be part of that workout note
+def convert_workout_notes_to_datetime(workout_notes: List[gkeepapi.node.Note], disallow_future_dates=False) \
+        -> Dict[datetime, str]:
+    # given a list of workout_notes, load each into a dictionary, where every note's title is a datetime object.
+    # Raise if unable to convert any title to datetime. Workout note titles will be like
+    # "26 January" or maybe "02 March 2022"
 
-    # a list of lists, containing all workouts, each saved as a list
-    lines_to_write_matrix = []
-    # days_data is a list of all lines in one workout
-    days_data = []
-    with open(source, 'r') as f:
-        lines = f.readlines()
+    workouts_dict = dict()
+    for note in workout_notes:
+        # remove fluff from note title
+        parsed_title = re.sub(re.compile(r', day \d'), '', note.title)
+        parsed_title = re.sub(re.compile('(,)? off day'), '', parsed_title)
 
-    start_appending = False
-    for line in lines:
-        # how we identify and copy workouts:
-        # 1) start copying at a dateline. We append each line to days_data
-        # 2) we append up to and including the next est xx mins line
-        #   2ii) If we encounter another dateline before the est xx mins line,
-        #   then we discard days_data (excepting that new dateline),
-        #   as it did not match our workout format.
-        #   Next loop, we then repeat from stage 2 onwards
-        # 3) we append the complete workout in days_data to lines_to_write_matrix
-        # 4) once all lines are read, we return lines_to_write_matrix
+        assert is_date(note.title), "convert_workout_notes_to_datetime() received a note without a date in its " \
+                                    "title. It cannot work with notes that do not contain a date in their title. " \
+                                    f"Please add a title to the note. Tip: it was last edited " \
+                                    f"{note.timestamps.edited}, and it contains this text\n{note.text}"
 
-        if not start_appending:
-            if is_dateline(line):
-                # stage 1)
-                start_appending = True
-                days_data.append(line)
-                continue
-        else:
-            if is_dateline(line):
-                # stage 2ii)
-                days_data = [line]
-            else:
-                # stage 2)
-                days_data.append(line)
-                if uf.is_est_xx_mins_line(line):
-                    # stage 3)
-                    start_appending = False
-                    lines_to_write_matrix.append(days_data)
-                    days_data = []
+        # if not parsed_title.strip()[:-4].isdigit():
+        #     # crude heuristic. If the last 4 digits are not digits, then assume no year was provided
+        #     parsed_title +=
 
-    return lines_to_write_matrix
+        if len(parsed_title.split()) == 2:
+            # hacky. Add a phony year so that the date can be recognized by the function below, and it won't use 1900.
+            parsed_title += str(datetime.now().year)
+
+        datetime_title = uf.convert_string_to_datetime(date_str=parsed_title,
+                                                       verbose=False,
+                                                       disallow_future_dates=disallow_future_dates,
+                                                       raise_on_failure=True,
+                                                       err_msg=f"Failed to convert the following workout note "
+                                                                 f"title to datetime object {note.title}")
+
+        workouts_dict[datetime_title] = note.text
+
+    return workouts_dict
 
 
-def write_workouts_to_xlsx(parsed_data, backup=True):
-    # writes to specified sheet in xlsx file at TARGET_PATH,
-    # to the correct date cell.
-    # Takes parsed_data, a list of tuples where tuple[0] is a workout's date
-    # and tuple[1] the workout data for that day
+def parse_workout_notes(workout_notes: List[gkeepapi.node.Note]) -> List[ParsedWorkout]:
+    # given a list of workout Note objects, parses the workout within each Note
+    # returns a list of ParsedWorkout objects, each representing one workout
+    # the data of each ParsedWorkout will be a partially processed workout
+
+    for note in workout_notes:
+        assert uf.est_xx_mins_line_in_note_text(note.text), \
+            "parse_workout_notes() received a note without an est xx mins" \
+            "line. This function accepts workout notes only, which are " \
+            "all expected to have an est xx mins line"
+
+    # receive a dictionary in which every note's title was converted to datetime
+    workout_notes_dict = convert_workout_notes_to_datetime(workout_notes, disallow_future_dates=True)
+
+    parsed_data_lst = []
+    for datetime_title, workout_text in workout_notes_dict.items():
+        # strip lines, and drop empty lines and comment lines.
+        workout_text = [line.strip() for line in workout_text.split('\n')
+                        if line
+                        and not (line_is_comment(line) or line.startswith('\n'))]
+
+        single_workout_lines = []
+        for line in workout_text:
+            # capitalize each letter, except under certain conditions
+            parsed_line = capitalize_selectively(line)
+
+            # clean-up, and fix common user entry errors.
+            parsed_line = parsed_line.replace(';', '.')
+            parsed_line = parsed_line.replace('..', '.')
+            parsed_line = parsed_line.replace(' .', '.')
+            parsed_line = parsed_line.replace(',,', '.')
+            parsed_line = parsed_line.replace('\n', '')
+
+            # the "+" symbol is used at the beginning of the line to denote an "extra" exercise. We don't save the "+".
+            parsed_line = parsed_line.replace('+ ', '')
+            parsed_line = parsed_line.replace('+', '')
+
+            # hard-coded replacement strings. This is personal preference.
+            if "home workout" in line.lower():
+                # The following lines, for example, would be replaced by the string below
+                # "Home workout, upper body A:", "Home workout, upper body B:", "Home workout, lower body + abs:"
+                parsed_line = "Home workout: "
+            if "shadowboxing" in line.lower():
+                parsed_line = "Shadowboxing: "
+
+            # this strips certain instructions from the line.
+            parsed_line = strip_num_x_nums(parsed_line)
+
+            # add that cleaned line to the workout's lines
+            single_workout_lines.append(parsed_line)
+
+        # semicolon-separate each exercise
+        exercises_str = '; '.join(single_workout_lines)
+
+        # replace the final semi-colon with a full stop.
+        exercises_str, est_xx_mins_line = exercises_str.rsplit('; ', 1)
+        complete_workout_text = exercises_str + ". " + est_xx_mins_line
+
+        # add the complete and formatted workout to parsed_data
+        parsed_data_lst.append(ParsedWorkout(title_datetime=datetime_title, data=complete_workout_text))
+
+    return parsed_data_lst
+
+
+def return_print_friendly_datetime_string(date_obj: datetime) -> str:
+    # like "02 Jan"
+    short_str = date_obj.strftime("%d %b")
+    return short_str
+
+
+def pair_workouts_with_rows(parsed_workouts: List[ParsedWorkout]) -> List[DataToWrite]:
+    # given a list of parsed workouts, pair each with the row in the target file, whose cell contains the same day's
+    # datetime. Then return that info as a list of DataToWrite objects
+
+    wb = openpyxl.load_workbook(p.TARGET_PATH)
+    sheet = wb[p.TARGET_SHEET]
+
+    # any workouts for which we were unable to find a matching date cell are added to this list
+    # later printed, to inform the user of workouts that need their attention
+    failed_to_find_date_cell = []
+    value_already_written = []
+    target_cell_contains_clashing_info = []
+    data_to_write: List[DataToWrite] = []
+
+    for parsed_workout in parsed_workouts:
+        data = parsed_workout.data
+        ex_datetime = parsed_workout.title_datetime
+
+        row = uf.find_row_of_datecell_given_datetime(sheet, ex_datetime, p.DATE_COLUMN, raise_on_failure=False)
+        if row == -1:
+            failed_to_find_date_cell.append(parsed_workout)
+            continue
+
+        celldata_to_write = data
+        target_cell_data = sheet.cell(row=row, column=p.WORKOUT_COLUMN).value
+
+        if not target_cell_data:
+            # success. Match found
+            data_to_write.append(DataToWrite(title_datetime=ex_datetime, data=data, target_row=row))
+
+        elif target_cell_data == celldata_to_write:
+            value_already_written.append(parsed_workout)
+
+        elif target_cell_data != celldata_to_write:
+            # problem: a different value already exists in the target cell. That said, it may be almost identical.
+            target_cell_contains_clashing_info.append((parsed_workout, target_cell_data))
+
+    if len(failed_to_find_date_cell) != 0:
+        raise AssertionError(f"Failed to find row matches for the following {len(failed_to_find_date_cell)} "
+                             f"workouts. Please verify that the matching date value exists in the target Excel "
+                             f"file, in the correct place.{failed_to_find_date_cell}")
+
+    # alert user to different scenarios, and request user action if required
+    if len(value_already_written) == len(parsed_workouts):
+        print("No workouts to write. Program exiting")
+        exit()
+
+    assert len(data_to_write) > 0, f"There are no workouts to be written"
+
+    if len(target_cell_contains_clashing_info) > 0:
+        print(f"The following {len(target_cell_contains_clashing_info)} workouts already have *different* values "
+              f"written to their target cells. Please review")
+        for parsed_workout, target_cell_data in parsed_workouts:
+            print(f"INTENDED WRITE for {parsed_workout.title_datetime}:\n{parsed_workout.data}")
+            print(f"EXISTING VALUE for {parsed_workout.title_datetime}:\n{target_cell_data}")
+        print("Please remedy, and also verify that you do not have 2 workouts with the same date in Keep, as this "
+              "may cause malfunctions\nDo not run KeepPruner before doing so, as its purpose is to trash your "
+              "Google Keep workouts.\n")
+        raise AssertionError
+
+    print(f"{len(data_to_write)} workouts can be written to target cells. {len(value_already_written)} workouts "
+          f"are already written to target cells")
+    assert len(set([pd.target_row for pd in data_to_write])) == len(data_to_write), \
+        "Error: multiple workouts are scheduled to be written to the same cell"
+    return data_to_write
+
+
+def write_workouts_to_xlsx(data_to_write: List[DataToWrite], backup=True):
+    # writes to specified sheet in xlsx file at TARGET_PATH, to the correct date cell.
+    # Takes data_to_write, a list of DataToWrite objects. Those are *already validated* objects
+    # does only minimal validation on its own
+
+    assert all([isinstance(obj, DataToWrite) for obj in data_to_write])
+    assert all([obj.target_row > 0 for obj in data_to_write]), "Invalid row for write object in function " \
+                                                               "write_workouts_to_xlsx(...)"
 
     if backup:
         uf.backup_targetpath()
@@ -86,84 +232,15 @@ def write_workouts_to_xlsx(parsed_data, backup=True):
     wb = openpyxl.load_workbook(p.TARGET_PATH)
     sheet = wb[p.TARGET_SHEET]
 
-    # any workouts that failed to write are added to this
-    # later printed, to inform the user of workouts that need their attention
-    # has not yet been necessary.
-    NOT_WRITEABLE = []
-
-    now = datetime.now()
-    for tpl in parsed_data:
-        # clean date line so that datetime can create datetime object
-        # exercise_datetime will be used to determine which cell to enter data into
-        # cleaning necessary because date line was processed by return_parsed_data()
-        exercise_datetime = tpl[0]
-        print_friendly_datetime = exercise_datetime[:2] + '-' + exercise_datetime[2:]
-
-        # assume that workouts are for current year, unless that date is in the future
-        exercise_datetime += str(now.year)
-        exercise_datetime = uf.convert_ddmmyyyy_to_datetime(exercise_datetime)
-        if exercise_datetime == -1:
-            # we cannot continue without a valid date
-            # Possible causes: UTF 8 stuff; unconverted data like "day 1"
-            print('Error: write_workouts_to_xlsx did not receive appropriate datetime')
-            exit()
-        if now < exercise_datetime:
-            # exercise would be in the future, so we assume it's from last year
-            exercise_datetime = exercise_datetime.replace(year=now.year - 1)
-
-        r = uf.find_row_of_datecell_given_datetime(sheet, exercise_datetime, p.DATE_COLUMN)
-        if r == -1:
-            print(f'Error: write_workouts_to_xlsx failed to write workout for date {print_friendly_datetime}')
-            # add the date but not the hour, minute, second values
-            # NOTE: this slice is not tested
-            NOT_WRITEABLE.append(str(exercise_datetime)[:10])
-            continue
-        else:
-            celldata_to_write = tpl[1]
-            if not sheet.cell(row=r, column=p.WORKOUT_COLUMN).value:
-                print(f'match FOUND. Writing {exercise_datetime} workout to cell in row {r}')
-                sheet.cell(row=r, column=p.WORKOUT_COLUMN).value = celldata_to_write
-
-            elif sheet.cell(row=r, column=p.WORKOUT_COLUMN).value == celldata_to_write:
-                print(f"Skipping write for {exercise_datetime}, it's already written to row {r}")
-
-            elif sheet.cell(row=r, column=p.WORKOUT_COLUMN).value != celldata_to_write:
-                # package_description: replace this with a more helpful system sometime
-                # if the user wants fuzzy matching, this is the place to implement it
-                print(f'Skipping write for {exercise_datetime}. ', end='')
-                print(f'A *different* value already exists at row {r}. ', end='')
-                print('Perhaps it\'s just a different format or a one-character difference')
-                print("INTENDED WRITE:\n", celldata_to_write)
-                print("EXISTING VALUE:\n", sheet.cell(row=r, column=p.WORKOUT_COLUMN).value)
-                print("Please verify that you do not have 2 workouts with the same date in Keep. This may cause malfunctions")
-                print("Do not run KeepPruner before doing so, as that would trash your workouts.")
+    for packet in data_to_write:
+        target_cell = sheet.cell(row=packet.target_row, column=p.WORKOUT_COLUMN)
+        assert not target_cell.value, "Programming error. Target cell already has value written. No changes made"
+        target_cell.value = packet.data
 
     wb.save(p.TARGET_PATH)
 
-    if len(NOT_WRITEABLE) > 0:
-        print('Workouts were not written for these dates:', end='\n\t')
-        print(','.join(NOT_WRITEABLE))
-        print('Suggest review of source data, as well as target file')
-        print('When complete, please re-run the program with the --no-fetch parameter')
-        exit()
 
-
-def is_date_given(path):
-    with open(path, 'r') as f:
-        lines = f.readlines()
-
-        for line in lines:
-            if is_dateline(line):
-                return True
-
-        print('Error: dateline not given. '
-              'Dates must be given as 3+ letter string with digit accompaniment\n'
-              'e.g. (6 Nov, January 26, 08 May)\n'
-              'Program exiting')
-        return False
-
-
-def is_dateline(line):
+def is_dateline(line: str):
     # disregard comments
     if line.startswith("/") or line.startswith("("):
         return False
@@ -180,7 +257,7 @@ def is_dateline(line):
         return is_date(line)
 
 
-def is_date(string, fuzzy=False):
+def is_date(string, fuzzy: bool=False):
     # helper function for is_dateline()
     """
     # copied from Stackoverflow solution
@@ -190,117 +267,54 @@ def is_date(string, fuzzy=False):
     :param fuzzy: bool, ignore unknown tokens in string if True
     """
     try:
-        # this is too liberal. For:
-        # 'July 23, day 3'
-        # it returns datetime.datetime(2003, 7, 23, 0, 0)
+        # this is too liberal. For: 'July 23, day 3', it returns datetime.datetime(2003, 7, 23, 0, 0)
         parse(string, fuzzy=fuzzy)
-        # return True
-
-        # reject strings like "17"
-        if len(string) < 4:
-            return False
-
-        # for our purposes, a string must contain digits
-        # so we reject strings like "September" as being datelines
-        # but accept "September 15" or "2 January"
-        for c in string:
-            if c.isdigit():
-                return True
-        return False
 
     except (ValueError, OverflowError):
         # phone numbers can result in overflow in parse() function
         return False
 
+    # reject strings like "17"
+    if len(string) < 4:
+        return False
 
-def return_parsed_data(clean_source=p.SOURCE_PATH):
-    # from CLEAN source file, extracts workouts and parses them
-    # (clean means that there's only workout data in there, nothing extraneous).
-    # cleaning is done by return_list_of_workouts_from_file()
-    # returns a list of tuples. One tuple is one workout.
-    # in each tuple[0] is the date, which lets us know where to write
-    # in each tuple[1] is a string containing a formatted workout
-    # if you want to remove anything from the title, like ", day 2", this is the place
+    # for our purposes, a string must contain digits
+    # therefore, we reject strings like "September" as datelines,
+    # but accept strings containing digits, such as "September 15" or "2 January"
+    for c in string:
+        if c.isdigit():
+            return True
+    return False
 
-    # parsed_data contains all workouts
-    parsed_data = []
 
-    with open(clean_source, 'r') as f:
-        lines = f.readlines()
+def capitalize_selectively(line) -> str:
+    for ind, c in enumerate(line):
+        if c.isalpha():
+            # we don't capitalize the "x" in "3x25 jabs", for example
+            if not re.search(r'\dx\d\d', line):
+                return line[:ind] + line[ind].upper() + line[ind + 1:]
+    return line
 
-    # account for user error: strip leading space before or after an exercise
-    for i in range(len(lines)):
-        lines[i] = lines[i].lstrip(' ').rstrip(' ')
 
-    # convert from source format to storage format
-    # replace ('+','\n'). Append ';'. Remove fluff like '4x7', '3 sets'
-    # omit comment lines
-    days_data = []
-    for line in lines:
-        # we want each exercise to start with a capital letter (for consistency) but capitalize is too clumsy.
-        for ind, c in enumerate(line):
-            if c.isalpha():
-                # we don't capitalize the "x" in "3x25 jabs", for example
-                if not re.search(r'\dx\d\d', line):
-                    line = line[:ind] + line[ind].upper() + line[ind + 1:]
-                    break
-
-        if "home workout" in line.lower():
-            # we log in the xlsx file only that it's a "Home workout: ", discarding other title details.
-            # here are example lines that we might expect
-            # "Home workout, upper body A:", "Home workout, upper body B:", "Home workout, lower body + abs:"
-            days_data.append("Home workout: ")
-            continue
-
-        if "shadowboxing" in line.lower():
-            days_data.append("Shadowboxing: ")
-            continue
-
-        # replace accidental double fullstops.
-        # line = line.replace('..', '.')
-        # user might add a semi-colon to an exercise line.
-        line = line.replace(';', '.')
-        # line = line.lstrip(' ')
-
-        if line.startswith(('/', '(', '\n')):
-            continue
-
-        elif line.startswith('+'):
-            a = line.replace('\n', '') + '; '
-            a = a.replace('+ ', '')
-            a = a.replace('+', '')
-            days_data.append(strip_num_x_nums(a))
-
-        else:
-            a = line.replace('\n', '') + '; '
-            days_data.append(strip_num_x_nums(a))
-
-        if uf.is_est_xx_mins_line(line):
-            # remove 'Est 67 mins;' semicolon
-            days_data[-1] = days_data[-1].replace('; ', '')
-
-            # change from '; Est 67 mins' to '. Est 67 mins'
-            days_data[-2] = days_data[-2].replace('; ', '. ')
-
-            # remove fluff from date line (aka the note's title)
-            date_line = days_data[0]
-            date_line = re.sub(re.compile(r', day \d'), '', date_line)
-            date_line = re.sub(re.compile('(,)? off day'), '', date_line)
-            date_line = date_line.replace(';', '').rstrip()
-
-            # final cleanup
-            # then append as tuple, where tpl[0] is the date, and tpl[1] the workout string
-            string_workout = ''.join(days_data[1:]).replace('  ', ' ').replace(' .', '.').replace('..', '.')
-            parsed_data.append((date_line, string_workout))
-            days_data = []
-
-    return parsed_data
+def line_is_comment(line) -> bool:
+    # comments exclusively begin with '/' or '('
+    if line.startswith('/'):
+        return True
+    if line.startswith('('):
+        return True
+    return False
 
 
 def strip_num_x_nums(prelim_parse: str) -> str:
-    # deprecated.
     # Instead, I recommend putting instructions on separate comment "/" lines, because it's more legible (and practical)
     # to separate instructions from exercise lines)
+
+    # example inputs (left) and outputs (right)
+    #  "Squat 4x7 70kg:" -> "Squat 70kg:"
+    #  "Deadlift 2x3+ 70kg:" -> "Deadlift 70kg:"
+    #  "Ohp 4x3 min 70-80kg:" -> "Ohp 70kg:"
+    # "Triceps, 1 set" -> "Triceps"
+    # "Superset lat stretches, 2 sets" -> "Triceps"
 
     # removes instructions, kilogram range, set and rep counts
     # regex to match: 4x7 , 3x5 , 5x6 min , 7x4+, 2x10-12 etc
@@ -351,12 +365,3 @@ def strip_num_x_nums(prelim_parse: str) -> str:
         parsed = re.sub(num_hyphen_num_sets_reg2, '', parsed)
 
     return parsed
-
-
-def line_is_comment(line):
-    # comments exclusively begin with '/' or '('
-    if line.startswith('/'):
-        return True
-    if line.startswith('('):
-        return True
-    return False
