@@ -143,7 +143,7 @@ def trash_original_and_replace(keep, bw_note, history) -> None:
     # items in trash remain available for 7 days, whereas changes to bw_note are irreversible
     # that's why we create a new note this way.
 
-    keep.createNote(title='', text=history)
+    keep.createNote(title=p.BODYWEIGHTS_NOTE_TITLE, text=history)
     bw_note.trash()
     keep.sync()
     print("Synchronizing")
