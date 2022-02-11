@@ -26,4 +26,8 @@ BODYWEIGHTS_NOTE_TITLE = "Bodyweights note"
 # bodyweights in the bodyweights note.
 HISTORY_LENGTH = 3
 
+# this is how many characters the Note and XLSX snippets will be, when presented to the user for comparison,
+# by KeepPruner
+SNIPPET_LENGTH = 31
+
 # ______________________________________________________________________________________________________

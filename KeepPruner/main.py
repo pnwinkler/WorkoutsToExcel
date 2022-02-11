@@ -13,6 +13,8 @@ import gkeepapi
 import GKeepToCalc.utilities.params as p
 import GKeepToCalc.utilities.utility_functions as uf
 
+from tabulate import tabulate
+from difflib import SequenceMatcher
 from typing import Dict, List, Union
 from datetime import datetime, timedelta
 # todo: make the date_xlsx_snippet_dict less flimsy and unintuitive
@@ -40,6 +42,7 @@ from datetime import datetime, timedelta
 
 def is_deletion_candidate(xlsx_snippets: Dict[str, str], note: gkeepapi.node.Note, end_date: datetime)\
         -> bool:
+    # todo: test this properly
     """
     for a given Note, return whether it is already written to the xlsx file, for the correct date, as a bool
     :param xlsx_snippets: a dictionary where each key is a prettified workout's date, and each value its string
@@ -68,8 +71,8 @@ def is_deletion_candidate(xlsx_snippets: Dict[str, str], note: gkeepapi.node.Not
         return False
 
     # 3) is note already written to the food eaten diet xlsx file?
-    date_key = uf.return_raw_note_date(note)
-    date_key = uf.get_pretty_date(date_key)
+    date_key: Union[str, datetime] = uf.return_raw_note_date(note)
+    date_key: str = uf.get_pretty_date(date_key)
     try:
         xlsx_value = xlsx_snippets[date_key]
         if not xlsx_value:
@@ -83,8 +86,9 @@ def is_deletion_candidate(xlsx_snippets: Dict[str, str], note: gkeepapi.node.Not
 
 
 def retrieve_xlsx_workout_snippets(sheet) -> Dict[str, str]:
-    # returns a dictionary, where the key is a date, and the value that date's value in the workout column of the
-    # passed in sheet
+    # create and return a dictionary, where each key is a unique day from the previous 365 days as of the time of
+    # execution, and each value is the value in the workout cell of that same row. All operating on the passed-in sheet
+    # lines without dates are dropped.
     today = datetime.now()
     max_row = uf.find_row_of_datecell_given_datetime(sheet=sheet, datetime_target=today, date_column=p.DATE_COLUMN)
     min_row = max_row - 365 # note that this may not retrieve a year of data, e.g. due to empty rows
@@ -94,21 +98,43 @@ def retrieve_xlsx_workout_snippets(sheet) -> Dict[str, str]:
     xlsx_snippets = dict()
 
     for row in sheet.iter_rows(min_row=min_row,
-                               min_col=p.DATE_COLUMN,
-                               max_col=p.WORKOUT_COLUMN,
+                               min_col=0,
+                               max_col=max(p.WORKOUT_COLUMN, p.DATE_COLUMN),
                                max_row=max_row,
-                               values_only=True):
-        date = uf.convert_string_to_datetime(row[p.DATE_COLUMN])
+                               values_only=False):
+        # a row here, is a tuple of cells. If you set min_col to be greater than 0, then all columns will be offset
+        # by that amount, in the results, meaning that the param values are no longer accurate indices here.
+        # NOTE that unlike the function in utility_functions.py, this one starts at index 0.
+        date_value = row[p.DATE_COLUMN - 1].value
+        workout = row[p.WORKOUT_COLUMN - 1].value
+        if not date_value:
+            # if there's not date, there's no snippet to store
+            continue
+        date = uf.convert_string_to_datetime(date_value)
         date = uf.get_pretty_date(date)
-        workout = row[p.WORKOUT_COLUMN]
         if date:
             xlsx_snippets[date] = workout
 
     return xlsx_snippets
 
 
+def get_string_pct_similarity(str_1, str_2) -> int:
+    float_num = SequenceMatcher(None, str_1, str_2).ratio()
+    return int(float_num * 100)
+
+
+# def sort_notes_by_date(Notes: List[gkeepapi.node.Note], reverse=False) -> List[gkeepapi.node.Note]:
+#     # note: doesn't quite work. It sorts by month then day, seemingly
+#     def sort_key(note):
+#         return uf.return_note_datetime(note)
+#     sorted_list = sorted(Notes, key=sort_key, reverse=reverse)
+#     return sorted_list
+
+
 def present_deletion_candidates(deletion_candidates: List[gkeepapi.node.Note],
                                 date_xlsx_snippet_dict: Dict[str, str]):
+    # todo: tidy this function up, and its description
+    # todo: sort deletion candidates by date
     '''
     give user an overview of these notes, so (s)he can decide whether to proceed with trashing. Format follows below:
     :param deletion_candidates: a list of note objects that are considered suitable for trashing, in Keep.
@@ -121,42 +147,37 @@ def present_deletion_candidates(deletion_candidates: List[gkeepapi.node.Note],
 
     Delete? (Y/N)
     '''
-    snippet_length = 30
-    print("These are the deletion candidates. They are already written to file, and are older than your specified "
-          "date range")
+    print(f"These are the {len(deletion_candidates)} deletion candidates. They are already written to file, and "
+          f"are older than your specified date range")
     print("\n**DELETION CANDIDATES**")
-    header = 'Date\tNote snippet\t\t\t\t\t\tExists in xlsx as...'
-    print(header)
 
+    # sorted_candidates = sort_notes_by_date(deletion_candidates)
+
+    # populate the matrix for tabulate. Tabulate will handle table printing, so the user can make easy side by side
+    # comparisons
+    tabulate_matrix = [[]]
     for note in deletion_candidates:
         # comment lines don't appear in the xlsx file, so they're unhelpful for side-by-side comparison
         note_snippet = return_note_text_minus_comments(note, remove_plus_signs=True).replace('\n', ' ')
-        if len(note_snippet) < (snippet_length):
-            # This makes short lines fit into neat columns. 20 is an arbitrary number.
-            note_snippet += ' ' * 20
-        note_snippet = note_snippet[:snippet_length]
+        note_snippet = note_snippet[:p.SNIPPET_LENGTH]
 
         # NOTE: we expect the note dates to be present, and in their titles
         note_date = uf.return_note_datetime(note)
         printable_date = uf.get_pretty_date(note_date)
+        xlsx_snippet = date_xlsx_snippet_dict[printable_date][:p.SNIPPET_LENGTH].rstrip()
+        similarity = get_string_pct_similarity(note_snippet, xlsx_snippet)
 
-        # a snippet from the xlsx. We add 1 because it makes the 2 kinds of snippet more frequently terminate on the
-        # same character, despite their different formats (mostly the difference is semi-colons).
-        xlsx_snippet = date_xlsx_snippet_dict[printable_date][:snippet_length + 1].rstrip()
+        # append a list
+        tabulate_matrix.append([printable_date, note_snippet, xlsx_snippet, str(similarity) + "%"])
 
-        # print side by side comparisons
-        print(f'{printable_date}'
-              f'\t '
-              f'{note_snippet}'
-              f'\t '
-              f'{xlsx_snippet} ...')
-
+    headers = ["Date", "Note snippet", "Exists in xlsx as...", "Similarity"]
+    print(tabulate(tabulate_matrix, headers=headers))
     print()
 
 
 def is_deletion_requested():
     # returns True if permission is given to delete ALL notes presented by present_deletion_candidates()
-    deletion_requested = input('Delete all? (Y/n): ').strip().lower()
+    deletion_requested = input('Delete all of the above? (y/N): ').strip().lower()
     if deletion_requested == 'y':
         return True
     return False
@@ -191,7 +212,7 @@ def request_end_date():
             target_date -= timedelta(days=365)
         print(datetime.strftime(target_date, '%d/%m/%Y'))
 
-        response = input('>Is this date correct? (Y/n)').lower()
+        response = input('>Is this date correct? (y/N)').lower()
         if response == 'y':
             return target_date
 
@@ -239,11 +260,12 @@ def main():
 
     if len(note_dates) != len(set(note_dates)):
         offenders = [date for date in note_dates if note_dates.count(date) > 1]
+        sorted_offenders = sorted(list(set(offenders)))
         raise ValueError("Two workout notes with the same date have been found. "
                          "Given that each date may have only 1 workout written to it, "
                          "deletion would result in loss of unwritten data. "
-                         "Please either correct the date of one, or concatenate them into one note.\n"
-                         f"Offender = {offenders}")
+                         "Please either correct their dates, or concatenate them into one note.\n"
+                         f"Offender = {sorted_offenders}")
 
     present_deletion_candidates(deletion_candidates=deletion_candidates, date_xlsx_snippet_dict=xlsx_snippets)
 
@@ -261,7 +283,7 @@ def main():
             keep.sync()
             # give sync time, in case of poor internet
             time.sleep(3)
-            print("Specified notes deleted")
+            print("Specified notes deleted. Program execution complete")
     else:
         print("No changes made")
         exit()
