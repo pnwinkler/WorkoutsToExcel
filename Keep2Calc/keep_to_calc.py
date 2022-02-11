@@ -227,7 +227,7 @@ def write_workouts_to_xlsx(data_to_write: List[DataToWrite], backup=True):
                                                                "write_workouts_to_xlsx(...)"
 
     if backup:
-        uf.backup_targetpath()
+        uf.backup_target_path()
 
     wb = openpyxl.load_workbook(p.TARGET_PATH)
     sheet = wb[p.TARGET_SHEET]

@@ -33,12 +33,6 @@ def main():
         from datetime import timedelta
         today -= timedelta(days=1)
 
-    end_row = uf.find_row_of_datecell_given_datetime(sheet, today, date_column=p.DATE_COLUMN)
-    assert end_row != -1, "Failed to find the appropriate end row in the xlsx file"
-    if sheet.cell(end_row, p.BODYWEIGHT_COLUMN).value:
-        print("Value already written for today. Exiting program")
-        exit()
-
     if bw_edit_timestamp < today:
         print("- You have not edited your bodyweights note today.")
         print("- Please add today's bodyweight to the note. Then run the program again")
@@ -49,11 +43,17 @@ def main():
     start_row = uf.return_first_empty_bodyweight_row(sheet,
                                                      date_column=p.DATE_COLUMN,
                                                      bodyweight_column=p.BODYWEIGHT_COLUMN)
-    todays_row = uf.find_row_of_datecell_given_datetime(sheet, datetime.today())
-    if todays_row == -1:
-        raise ValueError("Today's date cell not found")
-    context_window, bodyweights_lst = split_context_window_bodyweights_lst(bw_note)
+    todays_row = uf.find_row_of_datecell_given_datetime(sheet, today, date_column=p.DATE_COLUMN)
 
+    if start_row == -1:
+        raise ValueError("Start row not found")
+    if todays_row == -1:
+        raise ValueError("Failed to find the date cell corresponding to today's date in the xlsx file")
+    if sheet.cell(todays_row, p.BODYWEIGHT_COLUMN).value:
+        print("Value already written for today. Exiting program")
+        exit()
+
+    context_window, bodyweights_lst = split_context_window_bodyweights_lst(bw_note)
     if not bodyweights_lst:
         print(f"Debug: Note.title='{bw_note.title}'; Note.text='{bw_note.text}'")
         print("INFO: no bodyweights found in Keep note. There is nothing new to write\nExiting")
@@ -61,8 +61,10 @@ def main():
 
     # this is the number of bodyweights missing in the sheet, accounting for the fact that there may be empty rows
     # separating between target write cells (e.g. at year's end)
-    num_expected_bodyweights = (end_row - start_row + 1) - uf.count_empty_cells_between_rows(sheet, start_row, end_row,
-                                                                                             cols_lst=[p.DATE_COLUMN])
+    num_expected_bodyweights = (todays_row - start_row + 1) - uf.count_empty_rows_within_range(sheet=sheet,
+                                                                                               start_row=start_row,
+                                                                                               end_row=todays_row,
+                                                                                               cols_lst=[p.DATE_COLUMN])
     num_provided_bodyweights = len(bodyweights_lst)
 
     if num_expected_bodyweights != num_provided_bodyweights:
@@ -80,7 +82,7 @@ def main():
     # bodyweights committed to file
     history: str = return_bodyweight_history(context_window, bodyweights_lst, p.HISTORY_LENGTH)
 
-    uf.backup_targetpath()
+    uf.backup_target_path()
     print("Writing bodyweights to file")
     write_to_file(wb, sheet, row_bw_tpl_lst)
 
@@ -251,7 +253,7 @@ def split_context_window_bodyweights_lst(bw_note: gkeepapi.node.Note) -> Tuple[L
     # except ValueError:
     #     raise ValueError(f"ERROR: could not convert one of the following numbers in the bodyweights note"
     #                      f"\n{uncommitted_weights}")
-    # 
+    #
     # try:
     #     context_window_weights = [float(weight) for weight in context_window_weights]
     # except ValueError:

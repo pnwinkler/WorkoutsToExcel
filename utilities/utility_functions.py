@@ -1,92 +1,116 @@
+import re
+import os
+import shutil
+import getpass
 import gkeepapi
 import openpyxl
-import shutil
-import re
+import GKeepToCalc.utilities.params as p
+
 from datetime import datetime
-from typing import Union, List
-from GKeepToCalc.utilities.params import *
-import getpass
+from typing import Union, List, Optional
 
 
-def backup_targetpath():
-    if not BACKUP_FOLDER_NAME:
-        bk_folder_name = 'Keep2Calc.backups'
+def backup_target_path():
+    # backup the file at p.TARGET_PATH, unless it was already backed up earlier today
+    # todo: consider allowing multiple backups per day. Just rename the previous backup, if present. This may be useful
+    #  when performing multiple executions per day, e.g. testing, or bw + workout uploads same day.
+    if p.BACKUP_FOLDER_NAME:
+        bk_folder_name = p.BACKUP_FOLDER_NAME
     else:
-        bk_folder_name = BACKUP_FOLDER_NAME
+        bk_folder_name = 'Keep2Calc.backups'
 
-    backup_folder = os.path.join(os.path.dirname(TARGET_PATH), bk_folder_name)
+    backup_folder = os.path.join(os.path.dirname(p.TARGET_PATH), bk_folder_name)
 
     if not os.path.exists(backup_folder):
         os.makedirs(backup_folder)
 
     now = datetime.now()
     dmy = '{}.{}.{}'.format(now.day, now.month, now.year)
-    backup_basename = 'backup_' + dmy + '_' + os.path.basename(TARGET_PATH)
-    backup_full_path = os.path.join(backup_folder, backup_basename)
+    backup_basename = 'backup_' + dmy + '_' + os.path.basename(p.TARGET_PATH)
+    full_backup_path = os.path.join(backup_folder, backup_basename)
 
-    if not os.path.exists(backup_full_path):
+    if not os.path.exists(full_backup_path):
         print('Backing up target file')
-        shutil.copy(TARGET_PATH, backup_full_path)
+        shutil.copy(p.TARGET_PATH, full_backup_path)
 
 
-def convert_ddmmyyyy_to_datetime(date_str: Union[str, datetime],
-                                 verbose=True,
-                                 disallow_future_dates=True,
-                                 raise_on_failure=False):
-    # todo: rename this function and add assertions. This accepts strings like "14 November", contrary to func name
-    # take string in form DDMMYYYY and return its datetime equivalent
-    # also accepts strings like DDMONTHYYY where MONTH is a string
+def convert_string_to_datetime(date_str: Union[str, datetime],
+                               verbose=True,
+                               disallow_future_dates=True,
+                               raise_on_failure=False,
+                               err_msg: Optional[str] = None) -> Union[int, datetime]:
+    # todo: rename this function, split it up, and add assertions.
+    # todo: split this function up into more single-purpose parts.
+    # take string in form DDMMYYYY and return its datetime equivalent. If disallow_future_dates, then the returned
+    # datetime will always be in the past.
     # tolerant of spaces, newlines, semi-colons
-    # returns -1 if effort fails
+    # returns -1 if effort fails, unless raise_on_failure is True.
     if isinstance(date_str, datetime):
         return date_str
 
     date_str = date_str.replace('\n', '').replace(';', '').replace(' ', '').replace('.', '')
 
-    # if not date_str.isdigit():
-    #     raise ValueError(f'Invalid parameter for utilities convert_ddmm_to_datetime, date_str={date_str}')
-    #     return -1
+    year_formats_to_try = ['%d%B%Y', '%d%b%Y', '%B%d%Y', '%b%d%Y']
+    no_year_formats_to_try = ['%d%B', '%d%b', '%B%d', '%b%d']
 
-    try:
-        datetime_obj = datetime.strptime(date_str, '%d%B%Y')
-    except ValueError:
+    for year_format in year_formats_to_try:
         try:
-            datetime_obj = datetime.strptime(date_str, '%d%b%Y')
+            datetime_obj = datetime.strptime(date_str, year_format)
         except ValueError:
-            try:
-                datetime_obj = datetime.strptime(date_str, '%B%d%Y')
-            except ValueError:
-                try:
-                    datetime_obj = datetime.strptime(date_str, '%b%d%Y')
-                except Exception as e:
-                    # Possible causes: UTF 8 bullshit; unconverted data like "day 1"
-                    if verbose:
-                        print('Error in utilities convert_ddmm_to_datetime:', e)
-                    if raise_on_failure:
-                        raise e
-                    return -1
-    now = datetime.now()
-    if now < datetime_obj and disallow_future_dates:
-        # datetime is in the future, but future date is not wanted. Return previous year.
-        return datetime_obj.replace(year=now.year - 1)
-    return datetime_obj
+            continue
+
+        now = datetime.now()
+        if now < datetime_obj and disallow_future_dates:
+            # datetime is in the future, but future date is not wanted. Return previous year.
+            return datetime_obj.replace(year=now.year - 1)
+        return datetime_obj
+
+    for no_year_format in no_year_formats_to_try:
+        try:
+            datetime_obj = datetime.strptime(date_str, no_year_format)
+        except ValueError:
+            continue
+
+        now = datetime.now()
+        if now < datetime_obj and disallow_future_dates:
+            # datetime is in the future, but future date is not wanted. Return previous year.
+            return datetime_obj.replace(year=now.year - 1)
+        return datetime_obj
+
+    # matching to datetime failed, both with and without year
+    if raise_on_failure:
+        raise ValueError(err_msg)
+    if verbose:
+        print(f'Error in utilities convert_ddmm_to_datetime. Failed to convert this string to datetime: {date_str}')
+    return -1
 
 
-def count_empty_cells_between_rows(sheet, start_row, end_row, cols_lst: list):
-    # a non-inclusive count. Given target sheet, start and end rows, and a simple or composite key, counts how many
-    # rows between the 2 passed in rows have empty values in the key columns
+def count_empty_rows_within_range(sheet, start_row, end_row, cols_lst: List[int]) -> int:
+    # a non-inclusive count. Given target sheet, start and end rows, and a simple or composite key "cols_lst",
+    # counts how many rows between start_row and end_row have empty values in all the cols_lst key columns
 
     if isinstance(cols_lst, str):
         cols_lst = list(cols_lst)
     cols = [int(x) for x in cols_lst]
 
     count = 0
+    # for r in range(start_row + 1, end_row):
+    #     for col in cols:
+    #         if not sheet.cell(row=r, column=col).value:
+    #             count += 1
+    #             break
     for r in range(start_row + 1, end_row):
         for col in cols:
-            if not sheet.cell(row=r, column=col).value:
-                count += 1
-                break
+            if sheet.cell(row=r, column=col).value:
+                return count
+            count += 1
     return count
+
+
+def get_pretty_date(datetime_obj: datetime) -> str:
+    # expects a datetime object. Returns a pretty string representation of it
+    # example output: '13 Jan' or '07 Mar'. The exact format is user preference.
+    return datetime_obj.strftime('%d %b')
 
 
 def return_raw_note_date(note: gkeepapi.node.Note, raise_if_no_date=False) -> Union[str, datetime]:
@@ -100,17 +124,14 @@ def return_raw_note_date(note: gkeepapi.node.Note, raise_if_no_date=False) -> Un
 def return_note_datetime(note: gkeepapi.node.Note, raise_if_no_date=False, disallow_future_dates=True) -> datetime:
     assert isinstance(note, gkeepapi.node.Note), "return_raw_note_date did not receive a Note object"
     raw_date = return_raw_note_date(note=note, raise_if_no_date=raise_if_no_date)
-    # todo: parse
-    date = convert_ddmmyyyy_to_datetime(raw_date,
-                                        disallow_future_dates=disallow_future_dates,
-                                        raise_on_failure=True)
+    date = convert_string_to_datetime(raw_date,
+                                      disallow_future_dates=disallow_future_dates,
+                                      raise_on_failure=True)
     return date
 
 
-
-def find_row_of_datecell_given_datetime(sheet, datetime_target, date_column=2) -> int:
-    # todo: make this handle full datetimes better. Like 2021-05-13 12:09:53
-    #  current behavior is to fail to match "2021-05-13" because it's not "2021-05-13 12:09:53", for example
+def find_row_of_datecell_given_datetime(sheet, datetime_target: datetime, date_column: int, raise_on_failure=False) \
+        -> int:
     # returns row value of cell containing specified date, in specified column
     # returns -1 if not found
     # takes parameter sheet: a valid sheet object in an xlsx file
@@ -130,47 +151,52 @@ def find_row_of_datecell_given_datetime(sheet, datetime_target, date_column=2) -
         return -1
 
     # find date cell matching the "date" parameter in the given sheet
-    # note that in xlsx files:
-    # headers & strings are str,
-    # dates are datetime objects,
-    # empty cells are NoneType
+    # note that in xlsx files: headers and strings are str, dates are datetime objects, empty cells are NoneType
     r = 0
     empty_cell_count = 0
     while True:
         r += 1
-        # check datetime cells in DATE_COLUMN for exercise_datetime match.
-        # break if too many empty cells found in place of dates.
-        if isinstance(sheet.cell(row=r, column=date_column).value, datetime):
-            empty_cell_count = 0
-            if sheet.cell(row=r, column=date_column).value == datetime_target:
+        # check datetime cells in DATE_COLUMN for exercise_datetime match. Break if too many empty cells found instead
+        # of dates.
+        examined_cell_value = sheet.cell(row=r, column=date_column).value
+        if isinstance(examined_cell_value, datetime):
+            if examined_cell_value == datetime_target:
                 return r
+            empty_cell_count = 0
 
             # if examined cell is distant from workout's date, jump closer
-            # we assume continuity in file's date column: that there's no time gap between start and final date.
-            days_to_advance = (datetime_target - sheet.cell(row=r, column=date_column).value).days
+            days_to_advance = (datetime_target - examined_cell_value).days
             if days_to_advance > 3:
                 r += days_to_advance - 2
+
+            # we assume continuity: that there's no omitted date between start and final date file's date column
+            # this condition can only be true if there are dates missing
+            if isinstance(sheet.cell(row=r, column=date_column).value, datetime):
+                if sheet.cell(row=r, column=date_column).value > datetime_target:
+                    raise ValueError(f"You're missing one or more dates in your date column ({p.DATE_COLUMN})")
+
         else:
-            # it's possible that some cells in this column are neither None nor datetime
-            # but we still break after 50 non-date cells, given that we're looking for dates
-            # a few cells may be empty, for formatting reasons, so don't set the cap too low.
-            # but there's no reason to have 50+ non-date cells in a row.
+            # break after 50 non-date cells. A few cells may be empty, for formatting reasons, so don't set the cap too
+            # low. 50+ non-date cells in a row is far beyond what we expect.
             empty_cell_count += 1
             if empty_cell_count > 50:
+                if raise_on_failure:
+                    raise ValueError("Matching date cell not found in target sheet")
                 return -1
 
 
-def return_first_empty_bodyweight_row(sheet, date_column=2, bodyweight_column=3):
+def return_first_empty_bodyweight_row(sheet, date_column, bodyweight_column) -> int:
     # returns the integer row where:
     # 1) there's a date column cell filled in
     # 2) there's a bodyweights column cell that's empty
     # 3) the previous row has a filled in date cell, and bodyweights cell (disregarding empty rows, e.g. at year's end)
+    # searches backwards. If there is no candidate, then return None.
 
     today = datetime.now()
     todays_row = find_row_of_datecell_given_datetime(sheet, today, date_column)
 
     if sheet.cell(row=todays_row, column=bodyweight_column).value:
-        return todays_row
+        raise ValueError(f"Today's bodyweight cell is already written to")
 
     num_rows_to_check = 10000
     first_occurrence = todays_row
@@ -200,7 +226,7 @@ def is_workout_note(note: gkeepapi.node.Note, raise_error_if_has_xx_line_but_no_
     is_workout = is_est_xx_mins_line(note.text)
     if is_workout:
         if raise_error_if_has_xx_line_but_no_date:
-            if not convert_ddmmyyyy_to_datetime(note.title, verbose=False):
+            if not convert_string_to_datetime(note.title, verbose=False):
                 raise ValueError("The note above has an est xx mins line but no date could be extracted from its title")
     return is_workout
 
@@ -244,12 +270,12 @@ def retrieve_notes(keep) -> List[gkeepapi.node.Note]:
     return gnotes
 
 
-def return_now_as_friendly_datetime():
+def return_now_as_friendly_datetime() -> datetime:
     # return datetime.now() in a usable format (that the other programs expect)
     return datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
 
-def target_path_is_xslx(path):
+def target_path_is_xslx(path) -> bool:
     # returns True if utilities.TARGET_PATH variable points to .xslx file
     filename, file_extension = os.path.splitext(path)
     if file_extension == '.xlsx':
@@ -257,7 +283,7 @@ def target_path_is_xslx(path):
     return False
 
 
-def targetsheet_exists(path, target_sheet):
+def targetsheet_exists(path, target_sheet) -> bool:
     wb = openpyxl.load_workbook(path)
     if target_sheet in wb.sheetnames:
         return True
