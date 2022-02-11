@@ -70,93 +70,95 @@ def test_is_dateline():
     assert is_dateline('maybe') is False
 
 
-def test_return_clean_data_matrix():
-    # reads a file, ignores non-workout data, then returns a
-    # matrix, where each list represents one workout verbatim (as a list of strings)
-    # it does NOT remove comments or newlines or add punctuation.
-    # it only copies each line between a dateline and an est xx mins line (inclusive)
-    # into becomes a string inside a list
+# todo: update tests below for new process
 
-    assert len(return_list_of_workouts_from_file(single_workout1_path)) == 1
-    assert return_list_of_workouts_from_file(single_workout1_path)[0][0] == '22 November, day 3\n'
-    # capture comment lines
-    assert return_list_of_workouts_from_file(single_workout1_path)[0][2] == '(75kg: 8,8,8,7,7)\n'
-    assert return_list_of_workouts_from_file(single_workout1_path)[0][13] == '/RPE 9.5\n'
-    # do not copy any line after the est xx mins line
-    assert return_list_of_workouts_from_file(single_workout1_path)[0][-1] == 'Est 65 mins\n'
-
-    assert len(return_list_of_workouts_from_file(single_workout2_path)) == 1
-    assert return_list_of_workouts_from_file(single_workout2_path)[0][0] == '21 November, day 2\n'
-    assert return_list_of_workouts_from_file(single_workout2_path)[0][-1] == 'Est ?? mins\n'
-
-    assert len(return_list_of_workouts_from_file(single_workout3_path)) == 1
-    assert return_list_of_workouts_from_file(single_workout3_path)[0][0] == '24 November, day 4\n'
-    # if there's no line after the est xx mins line, there should be no newline in the est xx mins line
-    assert return_list_of_workouts_from_file(single_workout3_path)[0][-1] == 'Est 91 mins'
-
-    assert len(return_list_of_workouts_from_file(single_cardio1_path)) == 1
-    assert return_list_of_workouts_from_file(single_cardio1_path)[0][0] == '3 October\n'
-    assert return_list_of_workouts_from_file(single_cardio1_path)[0][1] == "Cardio (target heart rate 120-130): 45 mins\n"
-    assert return_list_of_workouts_from_file(single_cardio1_path)[0][-2] == "\n"
-    assert return_list_of_workouts_from_file(single_cardio1_path)[0][-3] == "+ band dislocates\n"
-    assert return_list_of_workouts_from_file(single_cardio1_path)[0][-1] == 'Est 54 mins\n'
-
-    assert len(return_list_of_workouts_from_file(single_shadowboxing1_path)) == 1
-    assert return_list_of_workouts_from_file(single_shadowboxing1_path)[0][0] == '6 October\n'
-    assert return_list_of_workouts_from_file(single_shadowboxing1_path)[0][1] == 'Shadowboxing:\n'
-    assert return_list_of_workouts_from_file(single_shadowboxing1_path)[0][3] == 'front delts\n'
-    assert return_list_of_workouts_from_file(single_shadowboxing1_path)[0][13] == '3x25 jabs\n'
-    assert return_list_of_workouts_from_file(single_shadowboxing1_path)[0][-1] == 'Est 27 mins\n'
-
-    assert len(return_list_of_workouts_from_file(multiple_workouts1_path)) == 3
-    assert return_list_of_workouts_from_file(multiple_workouts1_path)[0][0] == '22 November, day 3\n'
-    assert return_list_of_workouts_from_file(multiple_workouts1_path)[0][-1] == 'Est 65 mins\n'
-    # doesn't care about date order of workouts. Still copies verbatim.
-    assert return_list_of_workouts_from_file(multiple_workouts1_path)[1][0] == '21 November, day 2\n'
-    assert return_list_of_workouts_from_file(multiple_workouts1_path)[1][-1] == 'Est ?? mins\n'
-    assert return_list_of_workouts_from_file(multiple_workouts1_path)[2][0] == '24 November, day 4\n'
-    assert return_list_of_workouts_from_file(multiple_workouts1_path)[2][-1] == 'Est 91 mins\n'
-
-    assert len(return_list_of_workouts_from_file(multiple_workouts2_path)) == 3
-    assert return_list_of_workouts_from_file(multiple_workouts2_path)[0][0] == '7 October\n'
-    assert return_list_of_workouts_from_file(multiple_workouts2_path)[0][-1] == 'Est 74 mins\n'
-    assert return_list_of_workouts_from_file(multiple_workouts2_path)[1][0] == '5 October\n'
-    assert return_list_of_workouts_from_file(multiple_workouts2_path)[1][1] == 'Flat leg press 107kg: 10,10,10\n'
-    assert return_list_of_workouts_from_file(multiple_workouts2_path)[1][-1] == 'Est 69 mins\n'
-    assert return_list_of_workouts_from_file(multiple_workouts2_path)[2][0] == '1 October\n'
-    assert return_list_of_workouts_from_file(multiple_workouts2_path)[2][-1] == 'Est 62 mins\n'
-    assert return_list_of_workouts_from_file(multiple_workouts2_path)[2][-3] == '\n'
-    assert return_list_of_workouts_from_file(multiple_workouts2_path)[2][-4] == 'Dead hang\n'
-
-    # we deliberately don't catch the exercises listed up top without an est xx mins line
-    assert len(return_list_of_workouts_from_file(multiple_workouts3_path)) == 2
-    assert return_list_of_workouts_from_file(multiple_workouts3_path)[0][0] == '26 October\n'
-    assert return_list_of_workouts_from_file(multiple_workouts3_path)[0][-1] == 'Est 57 mins\n'
-
-
-def test_return_parsed_data():
-    # expects to read exclusively workout data. (Typically the output of return_list_of_workouts_from_file())
-    # returns a list of lists. Each workout is 1 inner list. Each inner list contains 2 tuples:
-    # each tuple[0] is the date, and each tuple[1] is a string containing a formatted workout
-    assert len(return_parsed_data(single_workout1_path)) == 1
-    assert isinstance(return_parsed_data(single_workout1_path), list)
-    assert isinstance(return_parsed_data(single_workout1_path)[0], tuple)
-    assert isinstance(return_parsed_data(single_workout1_path)[0][0], str)
-    assert isinstance(return_parsed_data(single_workout1_path)[0][1], str)
-    assert return_parsed_data(single_workout1_path)[0][0] == '22 November'
-    # fully parsed and ready to write.
-    assert return_parsed_data(single_workout1_path)[0][1] == single_workout1_solution
-
-    assert len(return_parsed_data(multiple_workouts3_path)) == 2
-    assert return_parsed_data(multiple_workouts2_path)[0][0] == '7 October'
-    assert return_parsed_data(multiple_workouts2_path)[1][0] == '5 October'
-    assert return_parsed_data(multiple_workouts2_path)[0][1] == multiple_workout3_solution_matrix[0]
-    assert return_parsed_data(multiple_workouts2_path)[1][1] == multiple_workout3_solution_matrix[1]
-
-    assert len(return_parsed_data(single_cardio1_path)) == 1
-    assert return_parsed_data(single_cardio1_path)[0][0] == '3 October'
-    assert return_parsed_data(single_cardio1_path)[0][1] == single_cardio1_solution
-
-    assert len(return_parsed_data(single_shadowboxing1_path)) == 1
-    assert return_parsed_data(single_shadowboxing1_path)[0][0] == '6 October'
-    assert return_parsed_data(single_shadowboxing1_path)[0][1] == single_shadowboxing1_solution
+# def test_return_clean_data_matrix():
+#     # reads a file, ignores non-workout data, then returns a
+#     # matrix, where each list represents one workout verbatim (as a list of strings)
+#     # it does NOT remove comments or newlines or add punctuation.
+#     # it only copies each line between a dateline and an est xx mins line (inclusive)
+#     # into becomes a string inside a list
+#
+#     assert len(return_list_of_workouts_from_file(single_workout1_path)) == 1
+#     assert return_list_of_workouts_from_file(single_workout1_path)[0][0] == '22 November, day 3\n'
+#     # capture comment lines
+#     assert return_list_of_workouts_from_file(single_workout1_path)[0][2] == '(75kg: 8,8,8,7,7)\n'
+#     assert return_list_of_workouts_from_file(single_workout1_path)[0][13] == '/RPE 9.5\n'
+#     # do not copy any line after the est xx mins line
+#     assert return_list_of_workouts_from_file(single_workout1_path)[0][-1] == 'Est 65 mins\n'
+#
+#     assert len(return_list_of_workouts_from_file(single_workout2_path)) == 1
+#     assert return_list_of_workouts_from_file(single_workout2_path)[0][0] == '21 November, day 2\n'
+#     assert return_list_of_workouts_from_file(single_workout2_path)[0][-1] == 'Est ?? mins\n'
+#
+#     assert len(return_list_of_workouts_from_file(single_workout3_path)) == 1
+#     assert return_list_of_workouts_from_file(single_workout3_path)[0][0] == '24 November, day 4\n'
+#     # if there's no line after the est xx mins line, there should be no newline in the est xx mins line
+#     assert return_list_of_workouts_from_file(single_workout3_path)[0][-1] == 'Est 91 mins'
+#
+#     assert len(return_list_of_workouts_from_file(single_cardio1_path)) == 1
+#     assert return_list_of_workouts_from_file(single_cardio1_path)[0][0] == '3 October\n'
+#     assert return_list_of_workouts_from_file(single_cardio1_path)[0][1] == "Cardio (target heart rate 120-130): 45 mins\n"
+#     assert return_list_of_workouts_from_file(single_cardio1_path)[0][-2] == "\n"
+#     assert return_list_of_workouts_from_file(single_cardio1_path)[0][-3] == "+ band dislocates\n"
+#     assert return_list_of_workouts_from_file(single_cardio1_path)[0][-1] == 'Est 54 mins\n'
+#
+#     assert len(return_list_of_workouts_from_file(single_shadowboxing1_path)) == 1
+#     assert return_list_of_workouts_from_file(single_shadowboxing1_path)[0][0] == '6 October\n'
+#     assert return_list_of_workouts_from_file(single_shadowboxing1_path)[0][1] == 'Shadowboxing:\n'
+#     assert return_list_of_workouts_from_file(single_shadowboxing1_path)[0][3] == 'front delts\n'
+#     assert return_list_of_workouts_from_file(single_shadowboxing1_path)[0][13] == '3x25 jabs\n'
+#     assert return_list_of_workouts_from_file(single_shadowboxing1_path)[0][-1] == 'Est 27 mins\n'
+#
+#     assert len(return_list_of_workouts_from_file(multiple_workouts1_path)) == 3
+#     assert return_list_of_workouts_from_file(multiple_workouts1_path)[0][0] == '22 November, day 3\n'
+#     assert return_list_of_workouts_from_file(multiple_workouts1_path)[0][-1] == 'Est 65 mins\n'
+#     # doesn't care about date order of workouts. Still copies verbatim.
+#     assert return_list_of_workouts_from_file(multiple_workouts1_path)[1][0] == '21 November, day 2\n'
+#     assert return_list_of_workouts_from_file(multiple_workouts1_path)[1][-1] == 'Est ?? mins\n'
+#     assert return_list_of_workouts_from_file(multiple_workouts1_path)[2][0] == '24 November, day 4\n'
+#     assert return_list_of_workouts_from_file(multiple_workouts1_path)[2][-1] == 'Est 91 mins\n'
+#
+#     assert len(return_list_of_workouts_from_file(multiple_workouts2_path)) == 3
+#     assert return_list_of_workouts_from_file(multiple_workouts2_path)[0][0] == '7 October\n'
+#     assert return_list_of_workouts_from_file(multiple_workouts2_path)[0][-1] == 'Est 74 mins\n'
+#     assert return_list_of_workouts_from_file(multiple_workouts2_path)[1][0] == '5 October\n'
+#     assert return_list_of_workouts_from_file(multiple_workouts2_path)[1][1] == 'Flat leg press 107kg: 10,10,10\n'
+#     assert return_list_of_workouts_from_file(multiple_workouts2_path)[1][-1] == 'Est 69 mins\n'
+#     assert return_list_of_workouts_from_file(multiple_workouts2_path)[2][0] == '1 October\n'
+#     assert return_list_of_workouts_from_file(multiple_workouts2_path)[2][-1] == 'Est 62 mins\n'
+#     assert return_list_of_workouts_from_file(multiple_workouts2_path)[2][-3] == '\n'
+#     assert return_list_of_workouts_from_file(multiple_workouts2_path)[2][-4] == 'Dead hang\n'
+#
+#     # we deliberately don't catch the exercises listed up top without an est xx mins line
+#     assert len(return_list_of_workouts_from_file(multiple_workouts3_path)) == 2
+#     assert return_list_of_workouts_from_file(multiple_workouts3_path)[0][0] == '26 October\n'
+#     assert return_list_of_workouts_from_file(multiple_workouts3_path)[0][-1] == 'Est 57 mins\n'
+#
+#
+# def test_return_parsed_data():
+#     # expects to read exclusively workout data. (Typically the output of return_list_of_workouts_from_file())
+#     # returns a list of lists. Each workout is 1 inner list. Each inner list contains 2 tuples:
+#     # each tuple[0] is the date, and each tuple[1] is a string containing a formatted workout
+#     assert len(return_parsed_data(single_workout1_path)) == 1
+#     assert isinstance(return_parsed_data(single_workout1_path), list)
+#     assert isinstance(return_parsed_data(single_workout1_path)[0], tuple)
+#     assert isinstance(return_parsed_data(single_workout1_path)[0][0], str)
+#     assert isinstance(return_parsed_data(single_workout1_path)[0][1], str)
+#     assert return_parsed_data(single_workout1_path)[0][0] == '22 November'
+#     # fully parsed and ready to write.
+#     assert return_parsed_data(single_workout1_path)[0][1] == single_workout1_solution
+#
+#     assert len(return_parsed_data(multiple_workouts3_path)) == 2
+#     assert return_parsed_data(multiple_workouts2_path)[0][0] == '7 October'
+#     assert return_parsed_data(multiple_workouts2_path)[1][0] == '5 October'
+#     assert return_parsed_data(multiple_workouts2_path)[0][1] == multiple_workout3_solution_matrix[0]
+#     assert return_parsed_data(multiple_workouts2_path)[1][1] == multiple_workout3_solution_matrix[1]
+#
+#     assert len(return_parsed_data(single_cardio1_path)) == 1
+#     assert return_parsed_data(single_cardio1_path)[0][0] == '3 October'
+#     assert return_parsed_data(single_cardio1_path)[0][1] == single_cardio1_solution
+#
+#     assert len(return_parsed_data(single_shadowboxing1_path)) == 1
+#     assert return_parsed_data(single_shadowboxing1_path)[0][0] == '6 October'
+#     assert return_parsed_data(single_shadowboxing1_path)[0][1] == single_shadowboxing1_solution
