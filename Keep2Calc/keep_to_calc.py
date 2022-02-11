@@ -211,7 +211,7 @@ def pair_workouts_with_rows(parsed_workouts: List[ParsedWorkout]) -> List[DataTo
               "Do not run KeepPruner before doing so, as its purpose is to trash your Google Keep workouts.\n")
         inp = input("Do you wish to proceed regardless? (y/N) ")
         print()
-        if inp.lower().strip() == "n":
+        if inp.lower().strip() != "y":
             print("User chose not to continue")
             exit()
 
