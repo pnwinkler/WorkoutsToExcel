@@ -221,7 +221,6 @@ def validate_bodyweight_note_text(bw_note_text: str):
 
 
 def split_context_window_bodyweights_lst(bw_note: gkeepapi.node.Note) -> Tuple[List[str], List[str]]:
-    # TODO: description
     # Take bodyweights note and return 2 lists, if validation passes without error.
     # The first list contains all float values found within the sole set of parentheses, if present. Else we return [].
     #   this is the context window

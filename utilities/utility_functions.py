@@ -45,6 +45,8 @@ def convert_string_to_datetime(date_str: Union[str, datetime],
     # datetime will always be in the past.
     # tolerant of spaces, newlines, semi-colons
     # returns -1 if effort fails, unless raise_on_failure is True.
+    # if infer_year_if_absent, then replace the default 1900 year with the most recent year, such that the date would
+    # still be in the past
     if isinstance(date_str, datetime):
         return date_str
 
@@ -72,6 +74,9 @@ def convert_string_to_datetime(date_str: Union[str, datetime],
             continue
 
         now = datetime.now()
+        if datetime_obj.year < 2000:
+            datetime_obj = datetime_obj.replace(year=now.year)
+
         if now < datetime_obj and disallow_future_dates:
             # datetime is in the future, but future date is not wanted. Return previous year.
             return datetime_obj.replace(year=now.year - 1)
@@ -107,9 +112,11 @@ def count_empty_rows_within_range(sheet, start_row, end_row, cols_lst: List[int]
     return count
 
 
-def get_pretty_date(datetime_obj: datetime) -> str:
+def get_pretty_date(datetime_obj: Union[datetime, str]) -> str:
     # expects a datetime object. Returns a pretty string representation of it
     # example output: '13 Jan' or '07 Mar'. The exact format is user preference.
+    if isinstance(datetime_obj, str):
+        datetime_obj = convert_string_to_datetime(datetime_obj)
     return datetime_obj.strftime('%d %b')
 
 
@@ -123,7 +130,7 @@ def return_raw_note_date(note: gkeepapi.node.Note, raise_if_no_date=False) -> Un
 
 def return_note_datetime(note: gkeepapi.node.Note, raise_if_no_date=False, disallow_future_dates=True) -> datetime:
     assert isinstance(note, gkeepapi.node.Note), "return_raw_note_date did not receive a Note object"
-    raw_date = return_raw_note_date(note=note, raise_if_no_date=raise_if_no_date)
+    raw_date = str(return_raw_note_date(note=note, raise_if_no_date=raise_if_no_date))
     date = convert_string_to_datetime(raw_date,
                                       disallow_future_dates=disallow_future_dates,
                                       raise_on_failure=True)

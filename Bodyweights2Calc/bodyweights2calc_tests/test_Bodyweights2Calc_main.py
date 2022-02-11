@@ -23,6 +23,13 @@ class MockWorkBookClass():
 # 	def __init__(self, value):
 # 		self.value = None
 
+# TODO: test note(s) like the following. This one gets written as "Shadowboxing: . EST 22 mins". Not good.
+# TITLE="29 January", TEXT=
+'''
+Cardio: shadowboxing
+
+EST 22 mins
+'''
 
 class MockNoteClass():
 	def __init__(self, title, text, trashed=False):
