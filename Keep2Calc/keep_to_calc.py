@@ -202,13 +202,18 @@ def pair_workouts_with_rows(parsed_workouts: List[ParsedWorkout]) -> List[DataTo
     if len(target_cell_contains_clashing_info) > 0:
         print(f"The following {len(target_cell_contains_clashing_info)} workouts already have *different* values "
               f"written to their target cells. Please review")
-        for parsed_workout, target_cell_data in parsed_workouts:
+        for parsed_workout, target_cell_data in target_cell_contains_clashing_info:
             print(f"INTENDED WRITE for {parsed_workout.title_datetime}:\n{parsed_workout.data}")
             print(f"EXISTING VALUE for {parsed_workout.title_datetime}:\n{target_cell_data}")
-        print("Please remedy, and also verify that you do not have 2 workouts with the same date in Keep, as this "
-              "may cause malfunctions\nDo not run KeepPruner before doing so, as its purpose is to trash your "
-              "Google Keep workouts.\n")
-        raise AssertionError
+        print("If these workouts are only slightly different, you may be OK with that. If they're significantly "
+              "different, then please reconcile them, and verify that you do not have 2 workouts with the same date "
+              "in Keep, as this may cause malfunctions\n"
+              "Do not run KeepPruner before doing so, as its purpose is to trash your Google Keep workouts.\n")
+        inp = input("Do you wish to proceed regardless? (y/N) ")
+        print()
+        if inp.lower().strip() == "n":
+            print("User chose not to continue")
+            exit()
 
     print(f"{len(data_to_write)} workouts can be written to target cells. {len(value_already_written)} workouts "
           f"are already written to target cells")
