@@ -237,6 +237,7 @@ def write_workouts_to_xlsx(data_to_write: List[DataToWrite], backup=True):
     wb = openpyxl.load_workbook(p.TARGET_PATH)
     sheet = wb[p.TARGET_SHEET]
 
+    print(f"Writing {len(data_to_write)} workouts to target file.")
     for packet in data_to_write:
         target_cell = sheet.cell(row=packet.target_row, column=p.WORKOUT_COLUMN)
         assert not target_cell.value, "Programming error. Target cell already has value written. No changes made"
