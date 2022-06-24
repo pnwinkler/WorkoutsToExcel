@@ -203,9 +203,10 @@ def pair_workouts_with_rows(parsed_workouts: List[ParsedWorkout]) -> List[DataTo
         print(f"The following {len(target_cell_contains_clashing_info)} workouts already have *different* values "
               f"written to their target cells. Please review")
         for parsed_workout, target_cell_data in target_cell_contains_clashing_info:
-            print(f"INTENDED WRITE for {parsed_workout.title_datetime}:\n{parsed_workout.data}")
-            print(f"EXISTING VALUE for {parsed_workout.title_datetime}:\n{target_cell_data}")
-        print("If these workouts are only slightly different, you may be OK with that. If they're significantly "
+            neat_datetime= parsed_workout.title_datetime.strftime('%Y-%m-%d')
+            print(f"{neat_datetime} INTENDED WRITE:\t{parsed_workout.data}")
+            print(f"{neat_datetime} EXISTING VALUE:\t{target_cell_data}")
+        print("\nIf these workouts are only slightly different, you may be OK with that. If they're significantly "
               "different, then please reconcile them, and verify that you do not have 2 workouts with the same date "
               "in Keep, as this may cause malfunctions\n"
               "Do not run KeepPruner before doing so, as its purpose is to trash your Google Keep workouts.\n")
