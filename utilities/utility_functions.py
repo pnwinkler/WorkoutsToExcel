@@ -90,25 +90,27 @@ def convert_string_to_datetime(date_str: Union[str, datetime],
     return -1
 
 
-def count_empty_rows_within_range(sheet, start_row, end_row, cols_lst: List[int]) -> int:
-    # a non-inclusive count. Given target sheet, start and end rows, and a simple or composite key "cols_lst",
-    # counts how many rows between start_row and end_row have empty values in all the cols_lst key columns
+def count_empty_contiguous_rows_within_range(sheet, start_row, end_row, cols_lst: List[int]) -> int:
+    """
+    Return a non-inclusive count of the contiguously empty rows between start and end rows, given a simple or composite
+    key (cols_lst). If the key is composite, then count only those rows where all columns in a given row have no value
+    :param sheet: the Excel sheet
+    :param start_row: the row at which to start counting
+    :param end_row: the row at which to stop counting
+    :param cols_lst: the columns in which to check for values
+    :return: a count of the empty rows found
+    """
 
     if isinstance(cols_lst, str):
         cols_lst = list(cols_lst)
     cols = [int(x) for x in cols_lst]
 
     count = 0
-    # for r in range(start_row + 1, end_row):
-    #     for col in cols:
-    #         if not sheet.cell(row=r, column=col).value:
-    #             count += 1
-    #             break
-    for r in range(start_row + 1, end_row):
+    for row in range(start_row, end_row + 1):
         for col in cols:
-            if sheet.cell(row=r, column=col).value:
+            if sheet.cell(row=row, column=col).value:
                 return count
-            count += 1
+        count += 1
     return count
 
 
