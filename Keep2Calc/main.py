@@ -1,9 +1,7 @@
-# BEST CALLED VIA COMMAND LINE
-# !!NOTE: should not be used for workouts more than 1 year old!!
-#   you will get bad results.
-#   they may be written to the wrong cell, and noise may be misidentified as workouts.
-# this is a limitation of the format for the title of each gkeep note
-# "24 October" for example does not specify a year
+# NOTE: should not be used for workouts more than 1 year old! This is because years are not processed in workout titles,
+# meaning that:
+# 1) workouts may be written to the wrong cell
+# 2) non-workout notes may be misidentified as workouts.
 import GKeepToCalc.Keep2Calc.keep_to_calc as ktc
 import GKeepToCalc.utilities.utility_functions as uf
 
@@ -27,4 +25,4 @@ data_to_write = ktc.pair_workouts_with_rows(parsed_workouts)
 ktc.write_workouts_to_xlsx(data_to_write, backup=True)
 
 print("All done! Consider double-checking the now-updated target file, "
-      "then running KeepPruner if you'd like to delete the old entries from Keep")
+	  "then running KeepPruner if you'd like to delete the old entries from Keep")
