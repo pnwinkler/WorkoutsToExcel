@@ -194,37 +194,39 @@ def find_row_of_datecell_given_datetime(sheet, datetime_target: datetime, date_c
                 return -1
 
 
-def return_first_empty_bodyweight_row(sheet, date_column, bodyweight_column) -> int:
-    # returns the integer row where:
-    # 1) there's a date column cell filled in
-    # 2) there's a bodyweights column cell that's empty
-    # 3) the previous row has a filled in date cell, and bodyweights cell (disregarding empty rows, e.g. at year's end)
-    # searches backwards. If there is no candidate, then return None.
+def return_first_empty_bodyweight_row(sheet, date_column: int, bodyweight_column: int) -> int:
+    """
+    Search backwards from the row corresponding to today's date, in order to find the smallest row number, where:
+     1) said row contains a date string in the date column, but no bodyweight in the bodyweights column,
+     2) and where the row above has filled in date and bodyweight cells.
+    We disregard empty rows, and return upon finding a row with lower index matching the above conditions.
+    :param sheet: the Excel sheet
+    :param date_column: the column in which date values are saved, e.g. 22/05/2021
+    :param bodyweight_column: the column in which bodyweights are saved
+    :return: an integer, representing a row number
+    """
 
     today = datetime.now()
     todays_row = find_row_of_datecell_given_datetime(sheet, today, date_column)
-
     if sheet.cell(row=todays_row, column=bodyweight_column).value:
         raise ValueError(f"Today's bodyweight cell is already written to")
 
-    num_rows_to_check = 10000
-    first_occurrence = todays_row
-    for x in range(num_rows_to_check):
+    first_occurrence = None
+    for row in range(todays_row, 1, -1):
         # search backwards
-        row = todays_row - x
-        try:
-            row_has_date = isinstance(sheet.cell(row=row, column=date_column).value, datetime)
-            row_has_bodyweight = isinstance(sheet.cell(row=row, column=bodyweight_column).value, (str, float, int))
-            if row_has_date and not row_has_bodyweight:
-                first_occurrence = row
-            elif row_has_bodyweight:
-                break
-        except IndexError as e:
-            raise ValueError(f"Failed to find empty bodyweight cell. Row index out of range. Exception {e}")
+        date_cell_value = sheet.cell(row=row, column=date_column).value
+        bw_cell_value = sheet.cell(row=row, column=bodyweight_column).value
+        row_has_date = isinstance(date_cell_value, datetime)
+        row_has_bodyweight = isinstance(bw_cell_value, (str, float, int))
 
-    if x != num_rows_to_check:
-        return first_occurrence
-    raise ValueError(f"Failed to find empty bodyweight cell. Examined {num_rows_to_check} rows")
+        if row_has_date and not row_has_bodyweight:
+            first_occurrence = row
+        if row_has_date and row_has_bodyweight:
+            # we've reached the previously filled in row.
+            if first_occurrence:
+                return first_occurrence
+
+    raise ValueError(f"Failed to find empty bodyweight cell.")
 
 
 def est_xx_mins_line_in_note_text(note_text) -> bool:
