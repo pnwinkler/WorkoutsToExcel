@@ -309,7 +309,7 @@ def main():
 		print("- You have not edited your bodyweights note today.")
 		print("- Please add today's bodyweight to the note. Then run the program again")
 		print("- If you don't remember it, a question mark will be fine")
-		print(f"bw_edit_timestamp= {bw_edit_timestamp}, note text=\"{bw_note.text}\"")
+		print(f"bw_edit_timestamp={bw_edit_timestamp}, note text=\"{bw_note.text}\"")
 		exit()
 
 	start_row = uf.return_first_empty_bodyweight_row(sheet,
