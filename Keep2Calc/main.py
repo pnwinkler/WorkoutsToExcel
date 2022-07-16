@@ -13,7 +13,7 @@ print('Running initial checks')
 ktc.initial_checks(all_notes)
 
 # filter out non-workout notes
-workout_notes = [note for note in all_notes if uf.is_workout_note(note, raise_error_if_has_xx_line_but_no_date=True)]
+workout_notes = [note for note in all_notes if uf.is_workout_note(note, raise_on_invalid_format=True)]
 
 # get each workout into a writeable format
 parsed_workouts = ktc.parse_workout_notes(workout_notes)
@@ -22,7 +22,7 @@ parsed_workouts = ktc.parse_workout_notes(workout_notes)
 data_to_write = ktc.pair_workouts_with_rows(parsed_workouts)
 
 # write it to target file
-ktc.write_workouts_to_xlsx(data_to_write, backup=True)
+ktc.write_data_to_xlsx(data_to_write, backup=True)
 
-print("All done! Consider double-checking the now-updated target file, "
-	  "then running KeepPruner if you'd like to delete the old entries from Keep")
+print("All done! Consider double-checking the now-updated target file, then running KeepPruner if you'd like to "
+      "delete the old entries from Keep")

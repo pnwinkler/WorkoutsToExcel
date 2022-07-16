@@ -17,27 +17,7 @@ from tabulate import tabulate
 from difflib import SequenceMatcher
 from typing import Dict, List, Union
 from datetime import datetime, timedelta
-# todo: make the date_xlsx_snippet_dict less flimsy and unintuitive
-
-
-# class SnippetManager:
-#     # the idea was to take away the complexity of managing keys. Keys will always be pretty strings
-#     def __init__(self):
-#         self.snippets = dict()
-#
-#     def insert_snippet(self, date: Union[str, datetime], value: str) -> None:
-#         key = self._convert_date_to_key(date)
-#         self.snippets[key] = value
-#
-#     def get_snippet(self, date: Union[str, datetime]) -> str:
-#         key = self._convert_date_to_key(date)
-#         return self.snippets.get(key)
-#
-#     def _convert_date_to_key(self, date: Union[str, datetime]) -> str:
-#         if isinstance(date, str):
-#             date = uf.convert_string_to_datetime(date_str=date, verbose=False)
-#         date = uf.get_pretty_date(datetime_obj=date)
-#         return date
+# todo: make the date_xlsx_snippet_dict less flimsy and more self explanatory
 
 
 def is_deletion_candidate(xlsx_snippets: Dict[str, str], note: gkeepapi.node.Note, end_date: datetime)\
@@ -58,9 +38,7 @@ def is_deletion_candidate(xlsx_snippets: Dict[str, str], note: gkeepapi.node.Not
 
     # given a Note title without year, such as "14 November", we append the current year, then convert that string to
     # datetime. However, if that date would be in the future, we set note_date to use last year's value instead.
-    # note_date = note.title + str(datetime.now().year)
-    # note_date = uf.convert_string_to_datetime(note_date, verbose=False, disallow_future_dates=True)
-    note_date = uf.convert_string_to_datetime(note.title, verbose=False, disallow_future_dates=True)
+    note_date = uf.convert_string_to_datetime(note.title, regress_future_dates=True)
 
     if note_date == -1:
         # failed to convert workout's note_date. It is incorrectly formatted.
@@ -71,8 +49,8 @@ def is_deletion_candidate(xlsx_snippets: Dict[str, str], note: gkeepapi.node.Not
         return False
 
     # 3) is note already written to the food eaten diet xlsx file?
-    date_key: Union[str, datetime] = uf.return_raw_note_date(note)
-    date_key: str = uf.get_pretty_date(date_key)
+    note_datetime = uf.return_note_datetime(note, raise_if_no_valid_date=True)
+    date_key: str = uf.date_to_short_string(note_datetime)
     try:
         xlsx_value = xlsx_snippets[date_key]
         if not xlsx_value:
@@ -90,7 +68,7 @@ def retrieve_xlsx_workout_snippets(sheet) -> Dict[str, str]:
     # execution, and each value is the value in the workout cell of that same row. All operating on the passed-in sheet
     # lines without dates are dropped.
     today = datetime.now()
-    max_row = uf.find_row_of_datecell_given_datetime(sheet=sheet, datetime_target=today, date_column=p.DATE_COLUMN)
+    max_row = uf.find_row_of_cell_matching_datetime(sheet=sheet, datetime_target=today, date_column=p.DATE_COLUMN)
     min_row = max_row - 365 # note that this may not retrieve a year of data, e.g. due to empty rows
     if min_row < 1:
         min_row = 1
@@ -102,16 +80,18 @@ def retrieve_xlsx_workout_snippets(sheet) -> Dict[str, str]:
                                max_col=max(p.WORKOUT_COLUMN, p.DATE_COLUMN),
                                max_row=max_row,
                                values_only=False):
-        # a row here, is a tuple of cells. If you set min_col to be greater than 0, then all columns will be offset
-        # by that amount, in the results, meaning that the param values are no longer accurate indices here.
-        # NOTE that unlike the function in utility_functions.py, this one starts at index 0.
-        date_value = row[p.DATE_COLUMN - 1].value
+        # a "row" in this context is a tuple of cells
+        # Note that setting min_col to be greater than 0 will offset all columns will be offset by that amount
+        date_value: Union[str, datetime] = row[p.DATE_COLUMN - 1].value
+
+        # convert from params.py's 1-indexed system, and openpyxl's 0-indexed system
         workout = row[p.WORKOUT_COLUMN - 1].value
         if not date_value:
             # if there's not date, there's no snippet to store
             continue
-        date = uf.convert_string_to_datetime(date_value)
-        date = uf.get_pretty_date(date)
+        if not isinstance(date_value, datetime):
+            date_value = uf.convert_string_to_datetime(date_value)
+        date = uf.date_to_short_string(date_value)
         if date:
             xlsx_snippets[date] = workout
 
@@ -123,23 +103,16 @@ def get_string_pct_similarity(str_1, str_2) -> int:
     return int(float_num * 100)
 
 
-# def sort_notes_by_date(Notes: List[gkeepapi.node.Note], reverse=False) -> List[gkeepapi.node.Note]:
-#     # note: doesn't quite work. It sorts by month then day, seemingly
-#     def sort_key(note):
-#         return uf.return_note_datetime(note)
-#     sorted_list = sorted(Notes, key=sort_key, reverse=reverse)
-#     return sorted_list
-
-
 def present_deletion_candidates(deletion_candidates: List[gkeepapi.node.Note],
-                                date_xlsx_snippet_dict: Dict[str, str]):
-    # todo: tidy this function up, and its description
-    # todo: sort deletion candidates by date
+                                date_xlsx_snippet_dict: Dict[str, str]) -> None:
     '''
-    give user an overview of these notes, so (s)he can decide whether to proceed with trashing. Format follows below:
+    Print the following, as columns in a table: deletion_candidates, its corresponding value from
+    date_xlsx_snippet_dict, a percentage similarity rating of the two strings.
     :param deletion_candidates: a list of note objects that are considered suitable for trashing, in Keep.
     :param date_xlsx_snippet_dict: a dictionary where each key is a workout's date, and each value its string
     representation in the target xlsx file.
+
+    TABLE FORMATTED AS BELOW:
 
     date    note to be deleted snippet      snippet from xlsx
     ...     ...                             ...
@@ -151,19 +124,17 @@ def present_deletion_candidates(deletion_candidates: List[gkeepapi.node.Note],
           f"are older than your specified date range")
     print("\n**DELETION CANDIDATES**")
 
-    # sorted_candidates = sort_notes_by_date(deletion_candidates)
-
-    # populate the matrix for tabulate. Tabulate will handle table printing, so the user can make easy side by side
-    # comparisons
+    # populate the matrix for tabulate
     tabulate_matrix = [[]]
+    # deletion_candidates = sorted(deletion_candidates, key=lambda x: x.note.timestamps.edited)
     for note in deletion_candidates:
-        # comment lines don't appear in the xlsx file, so they're unhelpful for side-by-side comparison
+        # remove comment lines, as they don't appear in the xlsx file, so they're unhelpful for side-by-side comparison
         note_snippet = return_note_text_minus_comments(note, remove_plus_signs=True).replace('\n', ' ')
         note_snippet = note_snippet[:p.SNIPPET_LENGTH]
 
         # NOTE: we expect the note dates to be present, and in their titles
         note_date = uf.return_note_datetime(note)
-        printable_date = uf.get_pretty_date(note_date)
+        printable_date = uf.date_to_short_string(note_date)
         xlsx_snippet = date_xlsx_snippet_dict[printable_date][:p.SNIPPET_LENGTH].rstrip()
         similarity = get_string_pct_similarity(note_snippet, xlsx_snippet)
 
@@ -175,7 +146,7 @@ def present_deletion_candidates(deletion_candidates: List[gkeepapi.node.Note],
     print()
 
 
-def is_deletion_requested():
+def is_deletion_requested() -> bool:
     # returns True if permission is given to delete ALL notes presented by present_deletion_candidates()
     deletion_requested = input('Delete all of the above? (y/N): ').strip().lower()
     if deletion_requested == 'y':
@@ -183,7 +154,7 @@ def is_deletion_requested():
     return False
 
 
-def greet():
+def greet() -> None:
     greeting = '\n\t\t\t GKEEP NOTE DELETER \n' + \
                '\tdeletes workout notes from a google keep account up to a given date\n' \
                '\tprovided they are already written to file and you give your approval\n' \
@@ -191,7 +162,7 @@ def greet():
     print(greeting)
 
 
-def request_end_date():
+def request_end_date() -> datetime:
     print('\tTo start, please enter the date you wish to delete up to in DDMM format')
     print('\t(if your DDMM > today, we\'ll choose DDMM + YY-1, and ask you if that\'s OK)')
     today = datetime.today()
@@ -237,7 +208,7 @@ def return_note_text_minus_comments(note: gkeepapi.node.Note, remove_plus_signs=
 def main():
     if not uf.target_path_is_xslx(p.TARGET_PATH):
         raise ValueError("TARGET_PATH in utilities.parameters incorrectly set. It does not point to an xlsx file")
-    if not uf.targetsheet_exists(p.TARGET_PATH, p.TARGET_SHEET):
+    if not uf.target_sheet_exists(p.TARGET_PATH, p.TARGET_SHEET):
         raise ValueError("TARGET_SHEET in utilities.parameters incorrectly set. Sheet not found in xlsx file")
 
     greet()

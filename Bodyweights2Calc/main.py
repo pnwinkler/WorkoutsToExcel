@@ -285,7 +285,7 @@ def main():
 	if not uf.target_path_is_xslx(p.TARGET_PATH):
 		raise ValueError(f"Target path specified in params.py does not point to xlsx file. "
 						 f"This is the path\n{p.TARGET_PATH}")
-	if not uf.targetsheet_exists(p.TARGET_PATH, p.TARGET_SHEET):
+	if not uf.target_sheet_exists(p.TARGET_PATH, p.TARGET_SHEET):
 		raise ValueError(f"Target xlsx does not contain sheet specified in params.py. "
 						 f"This is the path\n{p.TARGET_PATH}")
 
@@ -315,7 +315,7 @@ def main():
 	start_row = uf.return_first_empty_bodyweight_row(sheet,
 													 date_column=p.DATE_COLUMN,
 													 bodyweight_column=p.BODYWEIGHT_COLUMN)
-	todays_row = uf.find_row_of_datecell_given_datetime(sheet, today, date_column=p.DATE_COLUMN)
+	todays_row = uf.find_row_of_cell_matching_datetime(sheet, today, date_column=p.DATE_COLUMN)
 
 	if start_row == -1:
 		raise ValueError("Start row not found")
