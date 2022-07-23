@@ -72,17 +72,17 @@ def _load_workout_notes_to_dict(validated_workout_notes: List[gkeepapi.node.Note
 		parsed_title = re.sub(re.compile(r", day \d"), "", note.title)
 		parsed_title = re.sub(re.compile("(,)? off day"), "", parsed_title)
 
-		# rough approximation. Does it look like a date?
-		# todo: review is that makes sense, given that we convert below anyway
-		assert is_date(note.title), "Received note without date in title, as a parameter. This is an invalid format. " \
-									"All workouts must contain a date in their title" f"More info: the note was last " \
-									f"edited {note.timestamps.edited}, and it contains this text\n{note.text}"
-
-		# convert user-provided date, using their provided year
-		datetime_title = uf.convert_string_to_datetime(date_str=parsed_title, regress_future_dates=regress_future_dates)
+		try:
+			# convert user-provided date, using their provided year
+			datetime_title = uf.convert_string_to_datetime(date_str=parsed_title,
+														   regress_future_dates=regress_future_dates)
+		except ValueError as e:
+			raise ValueError("Received note without valid date in title. All workouts must contain a date in their "
+							 f"title.\nMore info: the note was last edited at {note.timestamps.edited}, and contains "
+							 f"the following text\n{note.text}") from e
 
 		if datetime_title.year == 1900:
-			# user did not provide year. We therefore provide our own
+			# user did not provide year. We therefore reconvert, using the current year
 			parsed_title += f" {datetime.now().year}"
 			datetime_title = uf.convert_string_to_datetime(date_str=parsed_title,
 														   regress_future_dates=regress_future_dates)
@@ -117,6 +117,7 @@ def parse_workout_notes(validated_workout_notes: List[gkeepapi.node.Note]) -> Li
 						if line
 						and not (line_is_comment(line) or line.startswith('\n'))]
 
+		# clean up and format one workout
 		one_workout_lines = []
 		for line in workout_text:
 			parsed_line = capitalize_selectively(line)
@@ -129,7 +130,7 @@ def parse_workout_notes(validated_workout_notes: List[gkeepapi.node.Note]) -> Li
 			parsed_line = parsed_line.replace('\n', '')
 
 			# the "+" symbol can be used at the beginning of the line in a note, to indicate an "extra" exercise (i.e.
-			# one not part of the standard workout).
+			# one not part of the standard workout). We will not write it to file.
 			parsed_line = parsed_line.replace('+ ', '')
 			parsed_line = parsed_line.replace('+', '')
 
@@ -180,7 +181,7 @@ def pair_workouts_with_rows(parsed_workouts: List[ParsedWorkout]) -> List[DataTo
 	# the list to be returned
 	workouts_to_write: List[DataToWrite] = []
 
-	# todo: fix. Ugly
+	# todo: fix. Ugly locally, and ugly logically. This paragraph shouldn't be necessary
 	if not len(parsed_workouts):
 		print("No workouts to write")
 		exit()
@@ -207,11 +208,10 @@ def pair_workouts_with_rows(parsed_workouts: List[ParsedWorkout]) -> List[DataTo
 			workout_already_written.append(workout)
 
 		elif target_cell_data != workout.data:
-			# todo: make this less clumsy. Why is it a list of tuples, with this name? The others are simple lists
-			# todo: determine. Why are we adding the complete workout object?
-			# save the entire workout object, to later provide full context
+			# save the workout object, and existing cell contents, for later comparison / context
 			target_cell_contains_clashing_info.append((workout, target_cell_data))
 
+	# todo: review and simplify logic below
 	# Processing done. Now alert user to different scenarios, and request user action if required
 	if len(failed_to_find_date_cell) != 0:
 		raise RuntimeError(f"Failed to find row matches for the following {len(failed_to_find_date_cell)} "
@@ -219,6 +219,7 @@ def pair_workouts_with_rows(parsed_workouts: List[ParsedWorkout]) -> List[DataTo
 						   f"file, in the correct place.\n{failed_to_find_date_cell}")
 
 	if len(target_cell_contains_clashing_info) != 0:
+		# todo: make msg clearer
 		print(f"The following {len(target_cell_contains_clashing_info)} workouts already have *different* values "
 			  f"written to their target cells. Please review")
 
@@ -226,10 +227,6 @@ def pair_workouts_with_rows(parsed_workouts: List[ParsedWorkout]) -> List[DataTo
 			neat_datetime = workout.title_datetime.strftime('%Y-%m-%d')
 			print(f"{neat_datetime} INTENDED WRITE:\t{workout.data}")
 			print(f"{neat_datetime} EXISTING VALUE:\t{target_cell_data}")
-
-		print("\nIf you choose to proceed in the next prompt, then these existing workouts will be overwritten. If "
-			  "you choose not to proceed, then the program will exit, and you will have a chance to reconcile these "
-			  "differences in Google Keep or in your target Excel file.")
 
 		inp = input("Do you wish to proceed, and OVERWRITE the existing values? (y/N) ")
 		if inp.lower().strip() != "y":
@@ -272,23 +269,6 @@ def write_data_to_xlsx(data_to_write: List[DataToWrite], backup=True) -> None:
 		target_cell.value = packet.data
 
 	wb.save(p.TARGET_PATH)
-
-
-# def is_dateline(line: str) -> bool:
-# 	# disregard comments
-# 	if line.startswith("/") or line.startswith("("):
-# 		return False
-#
-# 	if is_date(line):
-# 		# line is in recognizable format
-# 		return True
-#
-# 	# line not recognizable. Perhaps ', day 3' prevents it from being recognized as a date
-# 	# or ", off day"
-# 	else:
-# 		if ',' in line:
-# 			line = line[:line.index(',')]
-# 		return is_date(line)
 
 
 def is_date(string, fuzzy: bool = False) -> bool:
@@ -349,6 +329,21 @@ def line_is_comment(line: str) -> bool:
 		return True
 	return False
 
+# def is_dateline(line: str) -> bool:
+# 	# disregard comments
+# 	if line.startswith("/") or line.startswith("("):
+# 		return False
+#
+# 	if is_date(line):
+# 		# line is in recognizable format
+# 		return True
+#
+# 	# line not recognizable. Perhaps ', day 3' prevents it from being recognized as a date
+# 	# or ", off day"
+# 	else:
+# 		if ',' in line:
+# 			line = line[:line.index(',')]
+# 		return is_date(line)
 
 # def strip_num_x_nums(prelim_parse: str) -> str:
 #	# Legacy. Recommended alternative is not to put instructions on the workout line, but instead on separate
@@ -364,37 +359,37 @@ def line_is_comment(line: str) -> bool:
 # 	# removes instructions, kilogram range, set and rep counts
 # 	# regex to match: 4x7 , 3x5 , 5x6 min , 7x4+, 2x10-12 etc
 # 	set_x_rep_reg = re.compile(r','
-# 							   r'\s*'
-# 							   r'\dx\d'
-# 							   r'(\d)*'  # digits 'x' digit(s)
-# 							   r'\s*'  # spaces, if present
-# 							   r'(-)*'
-# 							   r'(\d)*'  # max rep specified, eg 12 in 2x10-12
-# 							   r'\+*'  # '+' if present
-# 							   r'(min)*'  # 'min' if present
-# 							   r'\s*',
-# 							   flags=re.IGNORECASE)
+# 								r'\s*'
+# 								r'\dx\d'
+# 								r'(\d)*'	# digits 'x' digit(s)
+# 								r'\s*'	# spaces, if present
+# 								r'(-)*'
+# 								r'(\d)*'	# max rep specified, eg 12 in 2x10-12
+# 								r'\+*'	# '+' if present
+# 								r'(min)*'	# 'min' if present
+# 								r'\s*',
+# 								flags=re.IGNORECASE)
 #
 # 	# regex to match: kilogram range comma and trailing space (e.g. '75-85kg, ')
 # 	num_hyphen_num_sets_reg1 = re.compile(r'\d\d'
-# 										  r'(kg)*'
-# 										  r'-'
-# 										  r'\d\d'
-# 										  r'(\s)?'  # accounts for improper source format
-# 										  r'kg'
-# 										  r'(,)?'
-# 										  r'(\s)?',
-# 										  flags=re.IGNORECASE)
+# 											r'(kg)*'
+# 											r'-'
+# 											r'\d\d'
+# 											r'(\s)?'	# accounts for improper source format
+# 											r'kg'
+# 											r'(,)?'
+# 											r'(\s)?',
+# 											flags=re.IGNORECASE)
 #
 # 	# regex to match: exercise-set count, leading and trailing spaces. e.g. ' 3 sets '
 # 	num_hyphen_num_sets_reg2 = re.compile(r'(,)?'
-# 										  r'(\s)*'  # leading space
-# 										  r'\d'  # digit count of sets
-# 										  r'(\s)?'
-# 										  r'set'
-# 										  r'(s)?'
-# 										  r'(\s)?',
-# 										  flags=re.IGNORECASE)
+# 											r'(\s)*'	# leading space
+# 											r'\d'	# digit count of sets
+# 											r'(\s)?'
+# 											r'set'
+# 											r'(s)?'
+# 											r'(\s)?',
+# 											flags=re.IGNORECASE)
 #
 # 	parsed = prelim_parse
 # 	# parse 1: remove 4x7 etc
