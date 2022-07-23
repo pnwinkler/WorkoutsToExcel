@@ -34,14 +34,13 @@ def backup_target_path() -> None:
 		shutil.copy(p.TARGET_PATH, full_backup_path)
 
 
-def convert_string_to_datetime(date_str: str, regress_future_dates=True) -> Union[int, datetime]:
+def convert_string_to_datetime(date_str: str, regress_future_dates=True) -> datetime:
 	"""
-	Return the input string's datetime equivalent. If regress_future_dates, then subtract one year from the date that
-	would be returned if that date is in the future at the time of execution.
+	Return the input string's datetime equivalent. Raise on failure to convert.
 	:param date_str: the string to convert
 	:param regress_future_dates: if true, then subtract one year from the date to be returned, if that date is in the
 	future as of the time of execution.
-	:return:
+	:return: a datetime object
 	"""
 	if not isinstance(date_str, str):
 		raise ValueError(f"Invalid parameter type received {type(date_str)}")
