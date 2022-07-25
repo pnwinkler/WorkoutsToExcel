@@ -128,6 +128,7 @@ def parse_workout_notes(validated_workout_notes: List[gkeepapi.node.Note]) -> Li
 			parsed_line = parsed_line.replace(' .', '.')
 			parsed_line = parsed_line.replace(',,', '.')
 			parsed_line = parsed_line.replace('\n', '')
+			parsed_line = parsed_line.replace('  ', ' ')
 
 			# the "+" symbol can be used at the beginning of the line in a note, to indicate an "extra" exercise (i.e.
 			# one not part of the standard workout). We will not write it to file.
@@ -144,6 +145,12 @@ def parse_workout_notes(validated_workout_notes: List[gkeepapi.node.Note]) -> Li
 
 			# this strips certain instructions from the line.
 			# parsed_line = strip_num_x_nums(parsed_line)
+
+			# trailing semi-colons can happen due to data entry errors
+			if parsed_line.endswith(":"):
+				parsed_line = parsed_line[:-1]
+
+			parsed_line = parsed_line.rstrip()
 
 			# add that cleaned line to the workout's lines
 			one_workout_lines.append(parsed_line)
@@ -218,6 +225,9 @@ def pair_workouts_with_rows(parsed_workouts: List[ParsedWorkout]) -> List[DataTo
 						   f"workouts. Please verify that the matching date value exists in the target Excel "
 						   f"file, in the correct place.\n{failed_to_find_date_cell}")
 
+	print(f"{len(workouts_to_write)} workouts can be written to target cells. {len(workout_already_written)} workouts "
+		  f"are already written to target cells")
+
 	if len(target_cell_contains_clashing_info) != 0:
 		# todo: make msg clearer
 		print(f"The following {len(target_cell_contains_clashing_info)} workouts already have *different* values "
@@ -225,8 +235,9 @@ def pair_workouts_with_rows(parsed_workouts: List[ParsedWorkout]) -> List[DataTo
 
 		for workout, target_cell_data in target_cell_contains_clashing_info:
 			neat_datetime = workout.title_datetime.strftime('%Y-%m-%d')
-			print(f"{neat_datetime} INTENDED WRITE:\t{workout.data}")
-			print(f"{neat_datetime} EXISTING VALUE:\t{target_cell_data}")
+			similarity = uf.get_string_pct_similarity(workout.data, target_cell_data)
+			print(f"{neat_datetime} INTENDED WRITE {similarity=}%:\t{workout.data}")
+			print(f"{neat_datetime} EXISTING VALUE {similarity=}%:\t{target_cell_data}")
 
 		inp = input("Do you wish to proceed, and OVERWRITE the existing values? (y/N) ")
 		if inp.lower().strip() != "y":
@@ -237,9 +248,7 @@ def pair_workouts_with_rows(parsed_workouts: List[ParsedWorkout]) -> List[DataTo
 		print("No new workouts to write. Program exiting")
 		exit()
 
-	print(f"{len(workouts_to_write)} workouts can be written to target cells. {len(workout_already_written)} workouts "
-		  f"are already written to target cells")
-	assert len(set([pd.target_row for pd in workouts_to_write])) != len(workouts_to_write), \
+	assert len(set([pd.target_row for pd in workouts_to_write])) == len(workouts_to_write), \
 		"Error: multiple workouts are scheduled to be written to the same cell"
 	return workouts_to_write
 
