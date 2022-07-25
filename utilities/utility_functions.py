@@ -8,6 +8,7 @@ import GKeepToCalc.utilities.params as p
 
 from datetime import datetime
 from typing import Union, List
+from difflib import SequenceMatcher
 
 
 def backup_target_path() -> None:
@@ -295,3 +296,8 @@ def target_sheet_exists(excel_path: str, target_sheet_name: str) -> bool:
 	"""
 	wb = openpyxl.load_workbook(excel_path)
 	return target_sheet_name in wb.sheetnames
+
+def get_string_pct_similarity(str_1, str_2) -> int:
+	float_num = SequenceMatcher(None, str_1, str_2).ratio()
+	return int(float_num * 100)
+

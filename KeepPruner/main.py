@@ -14,7 +14,6 @@ import GKeepToCalc.utilities.params as p
 import GKeepToCalc.utilities.utility_functions as uf
 
 from tabulate import tabulate
-from difflib import SequenceMatcher
 from typing import Dict, List, Union
 from datetime import datetime, timedelta
 # todo: make the date_xlsx_snippet_dict less flimsy and more self explanatory
@@ -98,11 +97,6 @@ def retrieve_xlsx_workout_snippets(sheet) -> Dict[str, str]:
     return xlsx_snippets
 
 
-def get_string_pct_similarity(str_1, str_2) -> int:
-    float_num = SequenceMatcher(None, str_1, str_2).ratio()
-    return int(float_num * 100)
-
-
 def present_deletion_candidates(deletion_candidates: List[gkeepapi.node.Note],
                                 date_xlsx_snippet_dict: Dict[str, str]) -> None:
     '''
@@ -136,7 +130,7 @@ def present_deletion_candidates(deletion_candidates: List[gkeepapi.node.Note],
         note_date = uf.return_note_datetime(note)
         printable_date = uf.date_to_short_string(note_date)
         xlsx_snippet = date_xlsx_snippet_dict[printable_date][:p.SNIPPET_LENGTH].rstrip()
-        similarity = get_string_pct_similarity(note_snippet, xlsx_snippet)
+        similarity = uf.get_string_pct_similarity(note_snippet, xlsx_snippet)
 
         # append a list
         tabulate_matrix.append([printable_date, note_snippet, xlsx_snippet, str(similarity) + "%"])
