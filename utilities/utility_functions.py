@@ -2,7 +2,7 @@ import re
 import os
 import shutil
 import getpass
-import gkeepapi
+# import gkeepapi
 import openpyxl
 import utilities.params as p
 
@@ -11,28 +11,21 @@ from typing import Union, List
 from difflib import SequenceMatcher
 
 
-def backup_target_path() -> None:
+def backup_file_to_dir(file: str, backup_directory: str) -> None:
     """
-    Backup the file at p.TARGET_PATH, unless it was already backed up earlier today.
+    Backup the file to the specified directory. If the directory does not exist, create it.
     """
-    if p.BACKUP_FOLDER_NAME:
-        bk_folder_name = p.BACKUP_FOLDER_NAME
-    else:
-        bk_folder_name = 'Keep2Calc.backups'
-
-    backup_folder = os.path.join(os.path.dirname(p.TARGET_PATH), bk_folder_name)
-
-    if not os.path.exists(backup_folder):
-        os.makedirs(backup_folder)
+    os.makedirs(backup_directory, exist_ok=True)
 
     now = datetime.now()
-    dmy = '{}.{}.{}'.format(now.day, now.month, now.year)
-    backup_basename = 'backup_' + dmy + '_' + os.path.basename(p.TARGET_PATH)
-    full_backup_path = os.path.join(backup_folder, backup_basename)
+    dmy = '-'.join(str(v) for v in [now.day, now.month, now.year])
+    backup_basename = "_".join(['backup', dmy, os.path.basename(p.TARGET_PATH)])
+    full_backup_path = os.path.join(backup_directory, backup_basename)
 
-    if not os.path.exists(full_backup_path):
-        print('Backing up target file')
-        shutil.copy(p.TARGET_PATH, full_backup_path)
+    try:
+        shutil.copy(file, full_backup_path)
+    except Exception as e:
+        print(f'Warning: Failed to backup target file to {full_backup_path}. Error: {e}')
 
 
 def convert_string_to_datetime(date_str: str, regress_future_dates=True) -> datetime:
@@ -43,34 +36,21 @@ def convert_string_to_datetime(date_str: str, regress_future_dates=True) -> date
     future as of the time of execution.
     :return: a datetime object
     """
-    if not isinstance(date_str, str):
-        raise ValueError(f"Invalid parameter type received {type(date_str)}")
 
-    date_str = date_str.replace('\n', '').replace(';', '').replace(' ', '').replace('.', '')
+    assert isinstance(date_str, str), f"Invalid parameter type received {type(date_str)}. Expected string"
+    for char in ['\n', ';', ' ', '.']:
+        date_str = date_str.replace(char, '')
 
-    year_formats_to_try = ['%d%B%Y', '%d%b%Y', '%B%d%Y', '%b%d%Y']
-    no_year_formats_to_try = ['%d%B', '%d%b', '%B%d', '%b%d']
-
-    for year_format in year_formats_to_try:
+    # try to match the date string to a datetime object, with and without year
+    for year_format in ['%d%B%Y', '%d%b%Y', '%B%d%Y', '%b%d%Y', '%d%B', '%d%b', '%B%d', '%b%d']:
         try:
             datetime_obj = datetime.strptime(date_str, year_format)
         except ValueError:
             continue
 
         now = datetime.now()
-        if now < datetime_obj and regress_future_dates:
-            # datetime is in the future, but future date is not wanted. Return previous year.
-            return datetime_obj.replace(year=now.year - 1)
-        return datetime_obj
-
-    for no_year_format in no_year_formats_to_try:
-        try:
-            datetime_obj = datetime.strptime(date_str, no_year_format)
-        except ValueError:
-            continue
-
-        now = datetime.now()
         if datetime_obj.year < 2000:
+            # year was not specified in the date string. Assume it's the current year.
             datetime_obj = datetime_obj.replace(year=now.year)
 
         if now < datetime_obj and regress_future_dates:
@@ -79,16 +59,29 @@ def convert_string_to_datetime(date_str: str, regress_future_dates=True) -> date
         return datetime_obj
 
     # matching to datetime failed, both with and without year
-    raise ValueError(f"Failed to convert this string to datetime: '{date_str}'")
+    raise ValueError(f"Failed to convert this value to datetime: '{date_str}'")
 
 
-def count_empty_contiguous_rows_within_range(sheet, start_row, end_row, cols_lst: List[int]) -> int:
+def date_to_short_string(the_date: Union[datetime, str]) -> str:
+    # todo: get rid of this function if possible
     """
-    Return an inclusive count of the contiguously empty rows between start and end rows, where all cells in those rows
-    are empty, for all columns in the columns list.
+    Given a datetime object or string, return an abbreviated string representation of it. Raise on failure
+    :param the_date: a string or datetime representation of a date
+    :return: an abbreviated string representation of the input
+    """
+    if isinstance(the_date, str):
+        the_date = convert_string_to_datetime(the_date)
+    # example output: '13 Jan' or '07 Mar'
+    return the_date.strftime('%d %b')
+
+
+def count_empty_contiguous_rows_within_range(sheet, start_row: int, end_row: int, cols_lst: List[int]) -> int:
+    """
+    Return an inclusive count of the contiguously empty rows between start and end rows, where all cells in each of
+    those rows are empty, for all columns in the columns list.
     :param sheet: the Excel sheet
     :param start_row: the row at which to start counting
-    :param end_row: the row at which to stop counting
+    :param end_row: the final row to check
     :param cols_lst: the columns in which to check for values
     :return: a count of the empty rows found
     """
@@ -103,18 +96,6 @@ def count_empty_contiguous_rows_within_range(sheet, start_row, end_row, cols_lst
                 return count
         count += 1
     return count
-
-
-def date_to_short_string(the_date: Union[datetime, str]) -> str:
-    """
-    Given a datetime object or string, return an abbreviated string representation of it. Raise on failure
-    :param the_date: a string or datetime representation of a date
-    :return: an abbreviated string representation of the input
-    """
-    if isinstance(the_date, str):
-        the_date = convert_string_to_datetime(the_date)
-    # example output: '13 Jan' or '07 Mar'
-    return the_date.strftime('%d %b')
 
 
 def return_note_datetime(note: gkeepapi.node.Note, raise_if_no_valid_date=False) -> datetime:

@@ -266,7 +266,7 @@ def write_data_to_xlsx(data_to_write: List[DataToWrite], backup=True) -> None:
                                                                "write_data_to_xlsx(...)"
 
     if backup:
-        uf.backup_target_path()
+        uf.backup_file_to_dir(file=p.TARGET_PATH, backup_directory=p.BACKUP_FOLDER_NAME)
 
     wb = openpyxl.load_workbook(p.TARGET_PATH)
     sheet = wb[p.TARGET_SHEET]

@@ -1,5 +1,4 @@
-# retrieves bodyweights from Google Keep, then writes them to the correct row in the file specified by
-# utilities.params.TARGET_PATH. Does some helpful things too, like alert the user to missing entries, etc
+# retrieves bodyweights, then writes them to the correct row in the target file (specified in params.py).
 import gkeepapi.node
 import openpyxl
 import time
@@ -374,7 +373,7 @@ def main():
                                                                         desired_count=p.HISTORY_LENGTH)
     history: str = format_bodyweight_history(most_recent_bodyweights)
 
-    uf.backup_target_path()
+    uf.backup_file_to_dir(file=p.TARGET_PATH, backup_directory=p.BACKUP_FOLDER_NAME)
     print("Writing bodyweights to file")
     write_to_file(wb, sheet, row_bodyweight_mapping)
 
