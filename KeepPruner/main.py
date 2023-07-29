@@ -27,7 +27,7 @@ def is_deletion_candidate(xlsx_snippets: Dict[str, str], note: gkeepapi.node.Not
     :param xlsx_snippets: a dictionary where each key is a prettified workout's date, and each value its string
     representation in the target xlsx file.
     :param note: the Note we're considering as a deletion candidate.
-    :param end_date: the cutoff point, after which we return False regardless of the Note or xlsx's value
+    :param end_date: the cutoff point, after which we return False regardless of the Note or Excel file's value
     """
 
     # 1) check if valid workout note
@@ -83,10 +83,10 @@ def retrieve_xlsx_workout_snippets(sheet) -> Dict[str, str]:
         # Note that setting min_col to be greater than 0 will offset all columns will be offset by that amount
         date_value: Union[str, datetime] = row[p.DATE_COLUMN - 1].value
 
-        # convert from params.py's 1-indexed system, and openpyxl's 0-indexed system
+        # params.py is 1-indexed, but openpyxl is 0-indexed
         workout = row[p.WORKOUT_COLUMN - 1].value
         if not date_value:
-            # if there's not date, there's no snippet to store
+            # if there's no date, there's no snippet to store
             continue
         if not isinstance(date_value, datetime):
             date_value = uf.convert_string_to_datetime(date_value)

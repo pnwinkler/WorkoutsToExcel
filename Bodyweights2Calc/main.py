@@ -160,7 +160,7 @@ def extract_bodyweights_from_validated_string(validated_str, split_on_parenthesi
     """
     Given a validated string, return the list of bodyweights found in that string. If split_on_parentheses,
     then return two lists - one containing values found inside parentheses, and one containing those outside
-    :param validated_str: a validated string containing comma-separated floats, ints, "?", or parentheses etc
+    :param validated_str: a validated string containing comma-separated floats, ints, "?", or parentheses etc.
     :param split_on_parenthesis: whether to split on parentheses
     :return: one or two lists, containing bodyweights found in each group
     """

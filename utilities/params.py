@@ -23,7 +23,7 @@ BODYWEIGHTS_NOTE_TITLE = "Bodyweights note"
 
 # history_length is the "X" most recent commits to the local file (where X is an integer), which Bodyweights2Calc will
 # use in order to create a context window (the parenthesized and comma-separated list of the "X" most recent
-# bodyweights in the bodyweights note.
+# bodyweights in the bodyweights note).
 HISTORY_LENGTH = 3
 
 # this is how many characters the Note and XLSX snippets will be, when presented to the user for comparison,
