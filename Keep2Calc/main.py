@@ -2,8 +2,8 @@
 # meaning that:
 # 1) workouts may be written to the wrong cell
 # 2) non-workout notes may be misidentified as workouts.
-import GKeepToCalc.Keep2Calc.keep_to_calc as ktc
-import GKeepToCalc.utilities.utility_functions as uf
+import Keep2Calc.keep_to_calc as ktc
+import utilities.utility_functions as uf
 
 keep_obj = uf.login_and_return_keep_obj()
 all_notes = list(uf.retrieve_notes(keep_obj))

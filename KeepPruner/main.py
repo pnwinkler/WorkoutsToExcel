@@ -10,8 +10,8 @@
 import time
 import openpyxl
 import gkeepapi
-import GKeepToCalc.utilities.params as p
-import GKeepToCalc.utilities.utility_functions as uf
+import utilities.params as p
+import utilities.utility_functions as uf
 
 from tabulate import tabulate
 from typing import Dict, List, Union

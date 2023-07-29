@@ -1,7 +1,7 @@
 import unittest
 from functools import partial
-from GKeepToCalc.Bodyweights2Calc.main import *
-import GKeepToCalc.utilities.params as params
+from Bodyweights2Calc.main import *
+import utilities.params as params
 
 
 class MockWorkBookClass():
