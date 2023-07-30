@@ -1,11 +1,18 @@
-from typing import Literal
+# supported retrieval methods:
+LOCAL_STR = "local"
+GKEEPAPI_STR = "gkeepapi"
 
 # ______________________________________________________________________________________________________
 
 # CHANGE AS NEEDED:
 
-# RETRIEVAL_METHOD specifies whether we retrieve data from local files or from Google Keep using gkeepapi.
-RETRIEVAL_METHOD: Literal["local", "gkeepapi"] = "local"
+# RETRIEVAL_METHOD specifies whether we retrieve data from local files (set to LOCAL_STR) or from Google Keep using
+# gkeepapi (set to GKEEPAPI_STR)
+RETRIEVAL_METHOD = GKEEPAPI_STR
+
+# LOCAL_SOURCE_DIR specifies the path of the directory containing the notes to be processed. This is only used if
+# RETRIEVAL_METHOD is set to LOCAL_STR.
+LOCAL_SOURCE_DIR = "YOUR/PATH/TO/LOCAL/NOTES"
 
 # TARGET_PATH specifies the path of the spreadsheet file to which you wish to write. TARGET_SHEET is the sheet within
 # that spreadsheet to which data will be written. To date, multiple target sheets may not be specified.
@@ -36,7 +43,7 @@ SNIPPET_LENGTH = 31
 
 # ______________________________________________________________________________________________________
 
-if RETRIEVAL_METHOD == "gkeepapi":
+if RETRIEVAL_METHOD == GKEEPAPI_STR:
     try:
         import gkeepapi
     except ImportError:

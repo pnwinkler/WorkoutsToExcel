@@ -1,8 +1,6 @@
 import re
 import os
 import shutil
-import getpass
-# import gkeepapi
 import openpyxl
 import utilities.params as p
 
@@ -85,6 +83,7 @@ def count_empty_contiguous_rows_within_range(sheet, start_row: int, end_row: int
     :param cols_lst: the columns in which to check for values
     :return: a count of the empty rows found
     """
+    # todo: consider removing this. It's only used in 1 place so far
     if isinstance(cols_lst, str):
         cols_lst = list(cols_lst)
     cols = [int(x) for x in cols_lst]
@@ -98,27 +97,8 @@ def count_empty_contiguous_rows_within_range(sheet, start_row: int, end_row: int
     return count
 
 
-def return_note_datetime(note: gkeepapi.node.Note, raise_if_no_valid_date=False) -> datetime:
-    """
-    Return a datetime object, extracted from the note's title, and subtracting a year if that note's day month
-    combination has not yet passed this year. Raise on failure, if requested.
-    :param note: the note object
-    :param raise_if_no_valid_date: raise if there's no date in the note title that can be converted to datetime
-    :return: a datetime object, representing a date such that the date is between 0 and (365 * 2 - 1) days in the past.
-    """
-    assert isinstance(note, gkeepapi.node.Note), "return_raw_note_date did not receive a Note object"
-    raw_date = str(note.title)
-    date = None
-    try:
-        date = convert_string_to_datetime(raw_date)
-    except ValueError as e:
-        if raise_if_no_valid_date:
-            raise ValueError(f"Cannot convert '{raw_date}' from note title, to date") from e
-    return date
-
-
 def find_row_of_cell_matching_datetime(sheet: openpyxl.workbook.workbook.Worksheet,
-                                       datetime_target: datetime,
+                                       datetime_target: datetime.date,
                                        date_column: int,
                                        raise_on_failure=False) -> int:
     """
@@ -140,6 +120,7 @@ def find_row_of_cell_matching_datetime(sheet: openpyxl.workbook.workbook.Workshe
         val = cell.value
 
         if isinstance(val, datetime):
+            #  This file is not used if RETRIEVAL_METHOD is set to "local" in params.py.
             if val == datetime_target:
                 return cell.row
 
@@ -184,25 +165,6 @@ def return_first_empty_bodyweight_row(sheet, date_column: int, bodyweight_column
     raise ValueError(f"Failed to find empty bodyweight cell.")
 
 
-def is_workout_note(note: gkeepapi.node.Note, raise_on_invalid_format=True) -> bool:
-    """
-    Returns True if a Note object is identified as a workout note, else False
-    :param note: a Keep Note object
-    :param raise_on_invalid_format: whether to raise if there's an est XX mins line but no date
-    :return: True / False
-    """
-    is_workout = str_contains_est_xx_mins_line(note.text)
-    if is_workout:
-        if raise_on_invalid_format:
-            try:
-                convert_string_to_datetime(note.title)
-            except ValueError as e:
-                msg = f"The note with this title '{note.title}' contains an est XX mins line but no date could be " \
-                      f"extracted from its title. This is an invalid combination."
-                raise ValueError(msg) from e
-    return is_workout
-
-
 def str_contains_est_xx_mins_line(line) -> bool:
     """
     Returns true if the input string contains an expression matching some variation of "Est ? mins" or "Est 52 mins",
@@ -220,51 +182,8 @@ def str_contains_est_xx_mins_line(line) -> bool:
     return bool(re.search(est_xx_mins_reg, line))
 
 
-def login_and_return_keep_obj() -> gkeepapi.Keep:
-    """
-    Log in to Google Keep and return a Keep object
-    :return: a Google Keep client object
-    """
-    username, password = None, None
-    try:
-        from utilities.credentials import username, password
-    except FileNotFoundError:
-        print("You can save your username as an environment variable, which can save you from typing your username"
-              "each time (see utilities/credentials.py)")
-
-    if not username:
-        username = input('Google Keep username: ')
-    if password is None:
-        # getpass obscures the password as it's entered
-        password = getpass.getpass('Google Keep password: ')
-
-    print('Logging in...')
-    keep = gkeepapi.Keep()
-    keep.login(username, password)
-    return keep
-
-
-def retrieve_notes(keep: gkeepapi.Keep) -> List[gkeepapi.node.Note]:
-    """
-    Given a keep object, return all of its not-trashed note objects
-    :param keep: a keep object
-    :return: a list of keep note objects
-    """
-    assert isinstance(keep, gkeepapi.Keep), "Invalid object passed in to retrieve_notes function"
-    print('Retrieving notes')
-    notes = keep.find(trashed=False)
-    if notes:
-        return notes
-    raise ValueError('No notes found. Incorrect username or password?')
-
-
-def target_path_is_xslx(path: str) -> bool:
-    """
-    Returns True if path points to a file with ".xlsx" extension, else False.
-    :param path: the file's path
-    :return: True / False
-    """
-    filename, extension = os.path.splitext(path)
+def target_path_is_xslx(file_path: str) -> bool:
+    filename, extension = os.path.splitext(file_path)
     return extension == '.xlsx'
 
 

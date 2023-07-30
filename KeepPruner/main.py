@@ -48,7 +48,7 @@ def is_deletion_candidate(xlsx_snippets: Dict[str, str], note: gkeepapi.node.Not
         return False
 
     # 3) is note already written to the food eaten diet xlsx file?
-    note_datetime = uf.return_note_datetime(note, raise_if_no_valid_date=True)
+    note_datetime = uf.return_google_note_datetime(note, raise_if_no_valid_date=True)
     date_key: str = uf.date_to_short_string(note_datetime)
     try:
         xlsx_value = xlsx_snippets[date_key]
@@ -127,7 +127,7 @@ def present_deletion_candidates(deletion_candidates: List[gkeepapi.node.Note],
         note_snippet = note_snippet[:p.SNIPPET_LENGTH]
 
         # NOTE: we expect the note dates to be present, and in their titles
-        note_date = uf.return_note_datetime(note)
+        note_date = uf.return_google_note_datetime(note)
         printable_date = uf.date_to_short_string(note_date)
         xlsx_snippet = date_xlsx_snippet_dict[printable_date][:p.SNIPPET_LENGTH].rstrip()
         similarity = uf.get_string_pct_similarity(note_snippet, xlsx_snippet)

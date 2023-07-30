@@ -105,29 +105,29 @@ class TestReturnBodyweightsList(MyTestCase):
 	def test_validate_bodyweight_note_text(self):
 		# this runs validation for split_history_from_uncommitted_bodyweights(...)
 		# rudimentary checks on its own. It will be further tested below
-		assert validate_bodyweight_note_text("") is None
-		assert validate_bodyweight_note_text("82") is None
+		assert _validate_bodyweight_note_text("") is None
+		assert _validate_bodyweight_note_text("82") is None
 
 		# we don't want this to fail on question marks
-		assert validate_bodyweight_note_text("?") is None
-		assert validate_bodyweight_note_text("82, ?") is None
-		assert validate_bodyweight_note_text("?, 123.45") is None
-		assert validate_bodyweight_note_text("(81),") is None
-		assert validate_bodyweight_note_text("(81), 95.2, ") is None
+		assert _validate_bodyweight_note_text("?") is None
+		assert _validate_bodyweight_note_text("82, ?") is None
+		assert _validate_bodyweight_note_text("?, 123.45") is None
+		assert _validate_bodyweight_note_text("(81),") is None
+		assert _validate_bodyweight_note_text("(81), 95.2, ") is None
 
-		assert validate_bodyweight_note_text(self.mock_note_1.text) is None
-		assert validate_bodyweight_note_text(self.mock_note_2.text) is None
-		assert validate_bodyweight_note_text(self.mock_note_3.text) is None
-		assert validate_bodyweight_note_text(self.mock_note_6.text) is None
-		assert validate_bodyweight_note_text(self.mock_note_7.text) is None
+		assert _validate_bodyweight_note_text(self.mock_note_1.text) is None
+		assert _validate_bodyweight_note_text(self.mock_note_2.text) is None
+		assert _validate_bodyweight_note_text(self.mock_note_3.text) is None
+		assert _validate_bodyweight_note_text(self.mock_note_6.text) is None
+		assert _validate_bodyweight_note_text(self.mock_note_7.text) is None
 
-		self._assertRaise(ValueError, validate_bodyweight_note_text, "()")
-		self._assertRaise(ValueError, validate_bodyweight_note_text, "(")
-		self._assertRaise(ValueError, validate_bodyweight_note_text, "(81, 95.2, ")
-		self._assertRaise(ValueError, validate_bodyweight_note_text, ")")
-		self._assertRaise(ValueError, validate_bodyweight_note_text, "((81), ")
-		self._assertRaise(ValueError, validate_bodyweight_note_text, "((81)), ")
-		self._assertRaise(ValueError, validate_bodyweight_note_text, "(81)), ")
+		self._assertRaise(ValueError, _validate_bodyweight_note_text, "()")
+		self._assertRaise(ValueError, _validate_bodyweight_note_text, "(")
+		self._assertRaise(ValueError, _validate_bodyweight_note_text, "(81, 95.2, ")
+		self._assertRaise(ValueError, _validate_bodyweight_note_text, ")")
+		self._assertRaise(ValueError, _validate_bodyweight_note_text, "((81), ")
+		self._assertRaise(ValueError, _validate_bodyweight_note_text, "((81)), ")
+		self._assertRaise(ValueError, _validate_bodyweight_note_text, "(81)), ")
 
 		# we don't raise for this
 		# self._assertRaise(ValueError, validate_bodyweight_note_text, "81.")
@@ -135,18 +135,18 @@ class TestReturnBodyweightsList(MyTestCase):
 		# self._assertRaise(ValueError, validate_bodyweight_note_text, "(81)") # no trailing comma
 
 		# non-digit character, that also isn't "." or "?"
-		self._assertRaise(ValueError, validate_bodyweight_note_text, "81.O")
-		self._assertRaise(ValueError, validate_bodyweight_note_text, "81, p")
-		self._assertRaise(ValueError, validate_bodyweight_note_text, "a")
-		self._assertRaise(ValueError, validate_bodyweight_note_text, "81.2, 83.b, 91")
+		self._assertRaise(ValueError, _validate_bodyweight_note_text, "81.O")
+		self._assertRaise(ValueError, _validate_bodyweight_note_text, "81, p")
+		self._assertRaise(ValueError, _validate_bodyweight_note_text, "a")
+		self._assertRaise(ValueError, _validate_bodyweight_note_text, "81.2, 83.b, 91")
 
-		self._assertRaise(ValueError, validate_bodyweight_note_text, self.mock_note_4.text)
-		self._assertRaise(ValueError, validate_bodyweight_note_text, self.mock_note_5.text)
-		self._assertRaise(ValueError, validate_bodyweight_note_text, self.mock_note_14.text)
-		self._assertRaise(ValueError, validate_bodyweight_note_text, self.mock_note_15.text)
-		self._assertRaise(ValueError, validate_bodyweight_note_text, self.mock_note_16.text)
-		self._assertRaise(ValueError, validate_bodyweight_note_text, self.mock_note_17.text)
-		self._assertRaise(ValueError, validate_bodyweight_note_text, self.mock_note_18.text)
+		self._assertRaise(ValueError, _validate_bodyweight_note_text, self.mock_note_4.text)
+		self._assertRaise(ValueError, _validate_bodyweight_note_text, self.mock_note_5.text)
+		self._assertRaise(ValueError, _validate_bodyweight_note_text, self.mock_note_14.text)
+		self._assertRaise(ValueError, _validate_bodyweight_note_text, self.mock_note_15.text)
+		self._assertRaise(ValueError, _validate_bodyweight_note_text, self.mock_note_16.text)
+		self._assertRaise(ValueError, _validate_bodyweight_note_text, self.mock_note_17.text)
+		self._assertRaise(ValueError, _validate_bodyweight_note_text, self.mock_note_18.text)
 
 
 # def test_split_context_window_bodyweights_lst_returns_bodyweights_if_bodyweights_in_note(self):

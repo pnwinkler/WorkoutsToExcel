@@ -1,10 +1,10 @@
 # retrieves bodyweights, then writes them to the correct row in the target file (specified in params.py).
-import gkeepapi.node
 import openpyxl
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections import UserDict
 from typing import List, Union, Tuple
+from utilities.shared_types import Entry
 import utilities.params as p
 import utilities.utility_functions as uf
 
@@ -33,24 +33,22 @@ class RowBodyweightPairings(UserDict):
                                       f"'{illegal_remainder}'"
 
 
-def return_most_recent_bodyweights(bodyweights: List[str], desired_count: int) -> List[str]:
+def return_most_recent_bodyweights(bodyweights: List[str], desired_count: int) -> List[str] | None:
     """
     Return the X elements with the greatest index, stripped of spaces
     :param bodyweights: a list of strings
     :param desired_count: how many items to include in the returned list
     :return: a list of string bodyweights
     """
-    assert isinstance(desired_count, int), "Please provide an integer history_length"
-
     bodyweights = [weight for weight in bodyweights if weight]
     if len(bodyweights) == 0:
-        return ['']
+        return None
 
-    if not all([isinstance(elem, str) for elem in bodyweights]):
-        # we need string values because only strings can represent question marks "?" (i.e. absent bodyweights)
-        raise ValueError(f"Error: non-string elements found in bodyweights list")
+    # we need string values because only strings can represent question marks "?" (i.e. absent bodyweights)
+    bodyweights = [str(weight) for weight in bodyweights]
 
-    # if history length < 0, then set it to 0
+    # we can't return a negative count
+    assert isinstance(desired_count, int), "Please provide an integer history_length"
     desired_count = max(desired_count, 0)
 
     try:
@@ -59,11 +57,7 @@ def return_most_recent_bodyweights(bodyweights: List[str], desired_count: int) -
         # history greater than the number of bodyweights in Note
         history = bodyweights
 
-    # strip spaces from each entry
-    for ind, _ in enumerate(history):
-        history[ind] = history[ind].replace(' ', '')
-
-    return history
+    return [entry.replace(' ', '') for entry in history]
 
 
 def format_bodyweight_history(history: List[str]) -> str:
@@ -96,42 +90,6 @@ def trash_note_and_replace(keep, note, new_text) -> None:
     time.sleep(3)
 
 
-def find_bodyweights_note(notes: List[gkeepapi.node.Note]) -> gkeepapi.node.Note:
-    """
-    Given a list of Notes, find the bodyweights note and return it. If multiple matching Notes are found, then raise a
-    ValueError.
-    :param notes: a list of Note objects through which to search
-    :return: a Note object
-    """
-    matches = []
-    for note in notes:
-        if note.trashed:
-            continue
-
-        if note.title.strip().lower() == p.BODYWEIGHTS_NOTE_TITLE.lower():
-            matches.append(note)
-
-    if len(matches) == 0:
-        raise ValueError("No matching note found.\n"
-                         "1) Does your bodyweight note exist?\n"
-                         "2) Does it contain \"{p.BODYWEIGHTS_NOTE_TITLE}\" (without quotes) in its title?")
-
-    if len(matches) > 1:
-        raise ValueError(f"Several Notes found with \"{p.BODYWEIGHTS_NOTE_TITLE}\" in their title. Unable to determine"
-                         f" which is the correct Note. Please trash the incorrect Note, or update the value of"
-                         f" the bodyweights note title in params.py")
-    return matches[0]
-
-
-def return_note_edit_timestamp(bw_note: gkeepapi.node.Note) -> datetime.date:
-    """
-    Return the edit time of the passed in Note object
-    :param bw_note: the Note object
-    :return: datetime object in form %Y-%m-%dT%H:%M:%S.%fZ (example: "2020-07-06 11:20:44.428000")
-    """
-    return bw_note.timestamps.edited
-
-
 def return_depunctuated_bodyweights_text(text,
                                          keep_decimal_places=False,
                                          keep_spaces=False,
@@ -154,17 +112,19 @@ def return_depunctuated_bodyweights_text(text,
     return txt
 
 
-def extract_bodyweights_from_validated_string(validated_str, split_on_parenthesis: bool) \
+def extract_bodyweights_from_validated_string(raw_string, split_on_parenthesis: bool) \
         -> Union[List, Tuple[List, List]]:
     """
     Given a validated string, return the list of bodyweights found in that string. If split_on_parentheses,
     then return two lists - one containing values found inside parentheses, and one containing those outside
-    :param validated_str: a validated string containing comma-separated floats, ints, "?", or parentheses etc.
-    :param split_on_parenthesis: whether to split on parentheses
+    :param raw_string: a string containing comma-separated floats, ints, "?", or parentheses etc.
+    :param split_on_parenthesis: whether to split on parentheses (typically used for the context window)
     :return: one or two lists, containing bodyweights found in each group
     """
 
-    depunc_str = return_depunctuated_bodyweights_text(validated_str,
+    # need to validate before proceeding
+    _validate_bodyweight_note_text(raw_string)
+    depunc_str = return_depunctuated_bodyweights_text(raw_string,
                                                       keep_decimal_places=True,
                                                       keep_spaces=True,
                                                       keep_question_marks=True)
@@ -174,36 +134,37 @@ def extract_bodyweights_from_validated_string(validated_str, split_on_parenthesi
             return [], []
         return []
 
+    values = [val for val in depunc_str.split() if val.replace(" ", "")]
+
     if not split_on_parenthesis:
         # return all bodyweights in string
-        lst = [val for val in depunc_str.split() if val.replace(" ", "")]
-        return lst
+        return values
 
-    if split_on_parenthesis:
-        # return 2 lists, split on closing parenthesis
-        if ")" in validated_str:
-            # this validation should already be done, but it's worth being certain
-            assert validated_str.count(")") == 1, "Too many ')' found in string"
-            validated_str = validated_str.replace("(", "").replace(",", "")
-            split_1, split_2 = validated_str.split(")")
-            context_window_weights = split_1.split()
-            uncommitted_weights = split_2.split()
-            return context_window_weights, uncommitted_weights
-        else:
-            bodyweights_lsts = depunc_str.split(), []
-            return bodyweights_lsts
+    # return 2 lists, split on closing parenthesis
+    if ")" in raw_string:
+        assert raw_string.count(")") == 1, "Too many ')' found in string"
+        raw_string = raw_string.replace("(", "").replace(",", " ")
+        split_1, split_2 = raw_string.split(")")
+        context_window_weights = [val for val in split_1.split() if val.strip()]
+        uncommitted_weights = [val for val in split_2.split() if val.strip()]
+        return context_window_weights, uncommitted_weights
+    else:
+        return [], values
 
 
-def validate_bodyweight_note_text(bw_note_text: str) -> None:
+def _validate_bodyweight_note_text(bw_note_text: str) -> None:
     """
-    If the bodyweight note text not as expected, then raise ValueError.
+    If the bodyweight note text is not formatted as expected, then raise an exception
     :param bw_note_text: the string text found within the bodyweight note
     """
 
     text = bw_note_text
+    if "(" in text and text.index("(") != 0:
+        raise ValueError("ERROR: the context window is not at the beginning of the bodyweights note")
     if "()" in text:
         # raise, to notify the user, in case (s)he accidentally ended up with "()" in the text
-        raise ValueError("ERROR: empty parentheses in bodyweights note")
+        raise ValueError("ERROR: empty parentheses in bodyweights note. Expect either no parentheses, or at least 1 "
+                         "bodyweight inside parentheses")
 
     if text.count("(") != text.count(")"):
         raise ValueError("ERROR: mismatched parentheses in bodyweights note")
@@ -219,11 +180,11 @@ def validate_bodyweight_note_text(bw_note_text: str) -> None:
                          "1-2 optional decimal places, and each bodyweight should be followed by a comma")
 
 
-def pair_new_bodyweights_with_rows(sheet, bodyweights_lst: [List, float], start_row: int, max_empty_rows=10) \
+def pair_new_bodyweights_with_rows(sheet, bodyweights: List[float, str], start_row: int, max_empty_rows=10) \
         -> RowBodyweightPairings:
     """
     :param sheet: sheet in xlsx file containing bodyweights and dates
-    :param bodyweights_lst: list of floats, representing bodyweights not yet committed to file
+    :param bodyweights: list of bodyweights not yet committed to file
     :param start_row: the row at which the search starts
     :param max_empty_rows: the number of empty rows after which an error is raised, if a suitable row cannot be found.
     :return: a list of tuples, where tuple[0] is the int row to write to, and tuple[1] the str bodyweight. Empty cells
@@ -234,19 +195,22 @@ def pair_new_bodyweights_with_rows(sheet, bodyweights_lst: [List, float], start_
     assert isinstance(max_empty_rows, int)
 
     current_row = start_row
-    count_empty = 1
+    count_empty = 0
     pairings = RowBodyweightPairings()
 
-    for bw in bodyweights_lst:
+    for bw in bodyweights:
         date_cell_value = sheet.cell(row=current_row, column=p.DATE_COLUMN).value
         while date_cell_value is None:
             # skip empty cells in date column (e.g. at end of year), up to max length "max_empty_rows"
             current_row += 1
             count_empty += 1
             date_cell_value = sheet.cell(row=current_row, column=p.DATE_COLUMN).value
-            if count_empty >= max_empty_rows:
-                raise RuntimeError(f"Found too many empty date cells (the cutoff is {max_empty_rows}). "
-                                   f"Please verify that your date cell column contains enough non-empty values")
+            if count_empty >= max_empty_rows - 1:
+                raise RuntimeError(
+                    "Failed to pair bodyweights with rows matching those bodyweights' entry dates. Too many date "
+                    f"cells in the Excel sheet are missing values (the cutoff is {max_empty_rows}). Please verify "
+                    f"that the date cell column in your Excel sheet contains enough non-empty values"
+                )
 
         # check if bodyweight cell is already written to
         bw_cell_value = sheet.cell(row=current_row, column=p.BODYWEIGHT_COLUMN).value
@@ -254,8 +218,8 @@ def pair_new_bodyweights_with_rows(sheet, bodyweights_lst: [List, float], start_
             pairings[str(current_row)] = bw
             current_row += 1
         else:
-            raise ValueError(f"Bodyweight cannot be written to target row {current_row} - cell already written to!"
-                             f"No changes have been made")
+            raise RuntimeError(f"Bodyweight cannot be written to target row {current_row} - cell already written to!"
+                               f"No changes have been made")
 
     return pairings
 
@@ -288,27 +252,32 @@ def main():
         raise ValueError(f"Target xlsx does not contain sheet specified in params.py. "
                          f"This is the path\n{p.TARGET_PATH}")
 
+    # use preferred retrieval method to retrieve notes
+    match p.RETRIEVAL_METHOD:
+        case p.GKEEPAPI_STR:
+            import utilities.keep_api_handler as Kf
+            handler = Kf.KeepApiHandler()
+        case p.LOCAL_STR:
+            import utilities.local_file_handler as Lr
+            handler = Lr.LocalFileHandler()
+        case _:
+            raise NotImplementedError(f"Retrieval method {p.RETRIEVAL_METHOD} not implemented. Did you spell it "
+                                      f"correctly?")
+
     wb = openpyxl.load_workbook(p.TARGET_PATH)
     sheet = wb[p.TARGET_SHEET]
-    keep = uf.login_and_return_keep_obj()
-    notes = uf.retrieve_notes(keep)
-    bw_note = find_bodyweights_note(notes)
+    bw_note: Entry = handler.return_bodyweights_note()
 
-    # if the user hasn't edited their bodyweights file recently, we do not write.
-    bw_edit_timestamp = return_note_edit_timestamp(bw_note)
-
-    # don't expect a bodyweight if run between 00:00 and 05:00
-    # we also use this value to set our endpoint (final cell).
-    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    # if this program is run after 5 AM, then expect the note to have been edited today. Else, yesterday.
+    today = datetime.now().date()
     if datetime.now().hour < 5:
-        from datetime import timedelta
         today -= timedelta(days=1)
 
-    if bw_edit_timestamp < today:
+    if bw_note.edit_timestamp < today:
         print("- You have not edited your bodyweights note today.")
         print("- Please add today's bodyweight to the note. Then run the program again")
         print("- If you don't remember it, a question mark will be fine")
-        print(f"bw_edit_timestamp={bw_edit_timestamp}, note text=\"{bw_note.text}\"")
+        print(f"Note edit timestamp={bw_note.edit_timestamp}, note text=\"{bw_note.text}\"")
         exit()
 
     start_row = uf.return_first_empty_bodyweight_row(sheet,
@@ -321,54 +290,51 @@ def main():
     if todays_row == -1:
         raise ValueError("Failed to find the date cell corresponding to today's date in the xlsx file")
     if sheet.cell(todays_row, p.BODYWEIGHT_COLUMN).value:
-        print("Value already written for today. Exiting program")
+        print("Today's bodyweight is already written to file. Exiting program")
         exit()
 
-    # check that text is as expected
-    validate_bodyweight_note_text(bw_note.text)
+    # separate bodyweights that have been committed to file (which are saved in the history / context window) from those
+    # that have not
+    _, uncommitted_bodyweights = extract_bodyweights_from_validated_string(raw_string=bw_note.text,
+                                                                           split_on_parenthesis=True)
 
-    # alias the now-validated text
-    validated_text = bw_note.text
-
-    # separate bodyweights that have been committed to file form those that have not
-    pre_existing_context_window, uncommitted_bodyweights = extract_bodyweights_from_validated_string(
-        validated_text,
-        split_on_parenthesis=True
-    )
-
-    if not uncommitted_bodyweights or (len(uncommitted_bodyweights) == 1 and uncommitted_bodyweights[0] == ""):
-        print(f"Debug: Note.title='{bw_note.title}'; Note.text='{bw_note.text}'")
+    if len(uncommitted_bodyweights) == 0:
         print("INFO: no bodyweights found in Keep note. There is nothing new to write\nExiting")
         exit()
 
-    # this is the number of bodyweights missing in the sheet, accounting for the fact that there may be empty rows
-    # separating between target write cells (e.g. at year's end)
-    # todo: simplify logic.
+    # check if every day between the date of the last entry and today has a corresponding bodyweight in the note
     num_expected_bodyweights = (todays_row - start_row + 1)
+    if num_expected_bodyweights != len(uncommitted_bodyweights):
+        raise ValueError(
+            ("Number of bodyweights provided in the bodyweights note does not match the number of days for which we "
+             "expect a bodyweight (which is 1 per day for every day since the last program run). "
+             f"Expected {num_expected_bodyweights} bodyweights but found {len(uncommitted_bodyweights)} "
+             "bodyweights. \nPlease correct the bodyweights note. " f"If you've forgotten a value, then a question "
+             "mark is a valid substitute for that bodyweight.")
+        )
+
+    # check if the number of empty cells in the Excel matches the number of bodyweights in the note
     count_empty_contiguous_rows = uf.count_empty_contiguous_rows_within_range(sheet=sheet,
                                                                               start_row=start_row,
                                                                               end_row=todays_row,
                                                                               cols_lst=[p.BODYWEIGHT_COLUMN])
-    if num_expected_bodyweights != len(uncommitted_bodyweights):
-        error_msg = f"Incorrect number of bodyweights supplied. Expected {num_expected_bodyweights} bodyweights in " \
-                    f"note. Found {len(uncommitted_bodyweights)} bodyweights. \nPlease correct the bodyweights note. " \
-                    f"If you've forgotten a value, then a question mark is a valid substitute for that bodyweight."
-        raise ValueError(error_msg)
 
-    if num_expected_bodyweights != count_empty_contiguous_rows:
-        error_msg = f"{num_expected_bodyweights} bodyweights were provided in Google Keep Note. However, this does " \
-                    f"not match the number of empty rows found in the sheet. Please review the Excel file for stray " \
-                    f"values in the bodyweights column."
-        raise ValueError(error_msg)
+    if len(uncommitted_bodyweights) != count_empty_contiguous_rows:
+        # todo: improve error message
+        raise ValueError(
+            (f"The number of bodyweights were provided in the bodyweights note ({len(uncommitted_bodyweights)}) does "
+             f"not match the number of empty rows found in the sheet. Please review the Excel file for stray "
+             f"values in the bodyweights column.")
+        )
 
     # pair bodyweights with their target rows. Account for empty rows, and raise if anything is amiss.
-    row_bodyweight_mapping: RowBodyweightPairings = pair_new_bodyweights_with_rows(sheet,
-                                                                                   uncommitted_bodyweights,
-                                                                                   start_row)
+    row_bodyweight_mapping: RowBodyweightPairings = pair_new_bodyweights_with_rows(sheet=sheet,
+                                                                                   bodyweights=uncommitted_bodyweights,
+                                                                                   start_row=start_row)
 
-    # prepare history of the most recently committed-to-file bodyweights, for the bodyweight Note in Keep. This
-    # may also be called the "context window".
-    all_bodyweights = extract_bodyweights_from_validated_string(validated_text, split_on_parenthesis=False)
+    # prepare history (or "context window") of the most recently committed-to-file bodyweights, to be written to the
+    # bodyweight note
+    all_bodyweights = extract_bodyweights_from_validated_string(bw_note.text, split_on_parenthesis=False)
     most_recent_bodyweights: List[str] = return_most_recent_bodyweights(bodyweights=all_bodyweights,
                                                                         desired_count=p.HISTORY_LENGTH)
     history: str = format_bodyweight_history(most_recent_bodyweights)
@@ -377,6 +343,7 @@ def main():
     print("Writing bodyweights to file")
     write_to_file(wb, sheet, row_bodyweight_mapping)
 
+    # TODO: finish up this section. Adapt to work locally, too
     # trash the bodyweights note, and replace it. The replacement has "history_length"
     # values saved in its history (i.e. context window)
     print("Updating note in Keep")
