@@ -5,8 +5,9 @@ import gkeepapi
 import time
 import params as p
 from datetime import datetime
+from functools import cache
 from typing import List
-from utilities.utility_functions import convert_string_to_datetime, str_contains_est_xx_mins_line
+from utilities.utility_functions import convert_string_to_datetime
 from shared_types import Entry, Handler
 
 
@@ -39,6 +40,7 @@ class KeepApiHandler(Handler):
         keep.login(username, password)
         return keep
 
+    @cache
     def retrieve_notes(self, get_trashed=False, get_archived=False) -> List[Entry] | None:
         """
         Return all notes from Google Keep as Entry objects, or None if no notes were found.
@@ -79,28 +81,25 @@ class KeepApiHandler(Handler):
 
     def return_bodyweights_note(self) -> gkeepapi.node.Note:
         """
-        Given a list of Notes, find the bodyweights note and return it. If multiple matching Notes are found, then raise a
-        ValueError.
+        Given a list of Notes, find the bodyweights note and return it. If multiple matching Notes are found, then
+        raise a ValueError.
         :return: a Note object
         """
         matches = []
-        for note in notes:
-            if note.trashed:
-                continue
-
-            if note.title.strip().lower() == p.BODYWEIGHTS_NOTE_TITLE.lower():
+        for note in self.retrieve_notes(get_trashed=False, get_archived=False):
+            if note.title.casefold().strip() == p.BODYWEIGHTS_NOTE_TITLE.casefold().strip():
                 matches.append(note)
 
         if len(matches) == 0:
             raise ValueError("No matching note found.\n"
                              "1) Does your bodyweight note exist?\n"
-                             "2) Does it contain \"{p.BODYWEIGHTS_NOTE_TITLE}\" (without quotes) in its title?")
+                             f"2) Does it contain \"{p.BODYWEIGHTS_NOTE_TITLE}\" (without quotes) in its title?")
 
         if len(matches) > 1:
             raise ValueError(
                 f"Several Notes found with \"{p.BODYWEIGHTS_NOTE_TITLE}\" in their title. Unable to determine"
-                f" which is the correct Note. Please trash the incorrect Note, or update the value of"
-                f" the bodyweights note title in params.py")
+                " which is the correct Note. Please trash the incorrect Note, or update the value ofthe bodyweights "
+                " note title in params.py")
         return matches[0]
 
     def replace_bodyweights_note(self, new_text) -> None:
