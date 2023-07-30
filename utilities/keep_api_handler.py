@@ -2,13 +2,15 @@
 
 import getpass
 import gkeepapi
+import time
+import params as p
 from datetime import datetime
 from typing import List
 from utilities.utility_functions import convert_string_to_datetime, str_contains_est_xx_mins_line
-from shared_types import Entry
+from shared_types import Entry, Handler
 
 
-class KeepApiHandler:
+class KeepApiHandler(Handler):
     # a class to handle all interactions with Google Keep using gkeepapi
     def __init__(self):
         self._keep_obj = self._login_and_return_keep_obj()
@@ -56,7 +58,6 @@ class KeepApiHandler:
             ]
         print('No notes found! Incorrect username or password?')
 
-    # todo: review these 2 functions. Do we need them?
     def return_google_note_datetime(self, note: gkeepapi.node.Note, raise_if_no_valid_date=False) -> datetime:
         """
         Return a datetime object, extracted from the note's title, and subtracting a year if that note's day month
@@ -66,7 +67,6 @@ class KeepApiHandler:
         :return: a datetime object, representing a date such that the date is between 0 and (365 * 2 - 1) days in the
         past.
         """
-        # todo: move this and other gkeepapi functions to a separate file
         assert isinstance(note, gkeepapi.node.Note), "return_raw_note_date did not receive a Note object"
         raw_date = str(note.title)
         date = None
@@ -77,29 +77,10 @@ class KeepApiHandler:
                 raise ValueError(f"Cannot convert '{raw_date}' from note title, to date") from e
         return date
 
-    def is_workout_note(self, note: gkeepapi.node.Note, raise_on_invalid_format=True) -> bool:
-        """
-        Returns True if a Note object is identified as a workout note, else False
-        :param note: a Keep Note object
-        :param raise_on_invalid_format: whether to raise if there's an est XX mins line but no date
-        :return: True / False
-        """
-        is_workout = str_contains_est_xx_mins_line(note.text)
-        if is_workout:
-            if raise_on_invalid_format:
-                try:
-                    convert_string_to_datetime(note.title)
-                except ValueError as e:
-                    msg = f"The note with this title '{note.title}' contains an est XX mins line but no date could be " \
-                          f"extracted from its title. This is an invalid combination."
-                    raise ValueError(msg) from e
-        return is_workout
-
-    def return_bodyweights_note(notes: List[gkeepapi.node.Note]) -> gkeepapi.node.Note:
+    def return_bodyweights_note(self) -> gkeepapi.node.Note:
         """
         Given a list of Notes, find the bodyweights note and return it. If multiple matching Notes are found, then raise a
         ValueError.
-        :param notes: a list of Note objects through which to search
         :return: a Note object
         """
         matches = []
@@ -122,10 +103,17 @@ class KeepApiHandler:
                 f" the bodyweights note title in params.py")
         return matches[0]
 
-    # def return_note_edit_timestamp(self, bw_note: gkeepapi.node.Note) -> datetime.date:
-    #     """
-    #     Return the edit time of the passed in Note object
-    #     :param bw_note: the Note object
-    #     :return: datetime object in form %Y-%m-%dT%H:%M:%S.%fZ (example: "2020-07-06 11:20:44.428000")
-    #     """
-    #     return bw_note.timestamps.edited
+    def replace_bodyweights_note(self, new_text) -> None:
+        """
+        Trash the bodyweights Note, and replace it with a new Note containing the new text. ( We don't edit in place
+        because items in trash remain available for 7 days, whereas changes to existing Notes may be irreversible).
+        :param new_text: the desired text of the new Note
+        """
+
+        self._keep_obj.createNote(title=p.BODYWEIGHTS_NOTE_TITLE, text=new_text)
+        bw_note = self.return_bodyweights_note()
+        bw_note.trash()
+        self._keep_obj.sync()
+        print("Synchronizing")
+        # without a wait sometimes sync doesn't complete
+        time.sleep(3)

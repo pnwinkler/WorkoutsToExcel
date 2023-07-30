@@ -19,8 +19,9 @@ LOCAL_SOURCE_DIR = "YOUR/PATH/TO/LOCAL/NOTES"
 TARGET_PATH = "YOUR/PATH/TO/EXCEL.xlsx"
 TARGET_SHEET = 'Bodyweight and workouts'
 
-# specifies the directory to which the file specified by TARGET_PATH will be backed up.
-BACKUP_FOLDER_NAME = "Keep2Calc_backups"
+# specifies the full path for the directory into which files will be backed up. Specifically: the file specified by
+# TARGET_PATH, and also the bodyweights file if running locally.
+LOCAL_BACKUP_DIR = "YOUR/PATH/TO/BACKUP_DIR"
 
 # these variables specify which columns the program expects to find dates, bodyweights and workouts in, within the
 # target spreadsheet. Note that the first column (A) maps to 1, not 0.

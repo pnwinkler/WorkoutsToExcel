@@ -72,24 +72,6 @@ def format_bodyweight_history(history: List[str]) -> str:
     return f"(" + ", ".join(history) + "), "
 
 
-def trash_note_and_replace(keep, note, new_text) -> None:
-    """
-    Trash input Note, and create new Note. (Items in trash remain available for 7 days, whereas changes to existing
-    Notes may be irreversible. That's why we do not edit in place).
-    We do not soft-code the title yet, as that's currently how we recognize the bodyweights note.
-    :param keep: the Google Keep object
-    :param note: the Note to be replaced
-    :param new_text: the desired text of the new Note
-    """
-
-    keep.createNote(title=p.BODYWEIGHTS_NOTE_TITLE, text=new_text)
-    note.trash()
-    keep.sync()
-    print("Synchronizing")
-    # without a wait sometimes sync doesn't complete
-    time.sleep(3)
-
-
 def return_depunctuated_bodyweights_text(text,
                                          keep_decimal_places=False,
                                          keep_spaces=False,
@@ -319,12 +301,12 @@ def main():
                                                                               end_row=todays_row,
                                                                               cols_lst=[p.BODYWEIGHT_COLUMN])
 
-    if len(uncommitted_bodyweights) != count_empty_contiguous_rows:
-        # todo: improve error message
+    if num_expected_bodyweights != count_empty_contiguous_rows:
         raise ValueError(
-            (f"The number of bodyweights were provided in the bodyweights note ({len(uncommitted_bodyweights)}) does "
-             f"not match the number of empty rows found in the sheet. Please review the Excel file for stray "
-             f"values in the bodyweights column.")
+            ("There are already values written to file in the bodyweights column for some of the days since the last "
+             f"program run. Expected {num_expected_bodyweights} empty rows in the bodyweights column but found "
+             f"{count_empty_contiguous_rows} Please correct the Excel file by removing stray entries in the "
+             f"bodyweights column.")
         )
 
     # pair bodyweights with their target rows. Account for empty rows, and raise if anything is amiss.
@@ -339,15 +321,13 @@ def main():
                                                                         desired_count=p.HISTORY_LENGTH)
     history: str = format_bodyweight_history(most_recent_bodyweights)
 
-    uf.backup_file_to_dir(file=p.TARGET_PATH, backup_directory=p.BACKUP_FOLDER_NAME)
+    uf.backup_file_to_dir(file_name=p.TARGET_PATH, backup_directory=p.LOCAL_BACKUP_DIR)
     print("Writing bodyweights to file")
     write_to_file(wb, sheet, row_bodyweight_mapping)
 
-    # TODO: finish up this section. Adapt to work locally, too
-    # trash the bodyweights note, and replace it. The replacement has "history_length"
-    # values saved in its history (i.e. context window)
-    print("Updating note in Keep")
-    trash_note_and_replace(keep, bw_note, history)
+    # all done. We can replace the bodyweights note
+    print("Updating bodyweights note")
+    handler.replace_bodyweights_note(new_text=history)
     print("Finished!")
 
 

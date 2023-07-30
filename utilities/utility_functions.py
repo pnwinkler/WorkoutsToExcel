@@ -4,24 +4,27 @@ import shutil
 import openpyxl
 import utilities.params as p
 
+from shared_types import Entry
 from datetime import datetime
 from typing import Union, List
 from difflib import SequenceMatcher
 
 
-def backup_file_to_dir(file: str, backup_directory: str) -> None:
+def backup_file_to_dir(file_name: str, backup_directory: str) -> None:
     """
-    Backup the file to the specified directory. If the directory does not exist, create it.
+    Backup the file to the specified directory. Expect a full path. If the directory does not exist, create it.
+    :param file_name: the path to the file to be backed up. Path can be full, or filename only.
+    :param backup_directory: the directory to back the file up to. Path must be full.
     """
     os.makedirs(backup_directory, exist_ok=True)
 
     now = datetime.now()
     dmy = '-'.join(str(v) for v in [now.day, now.month, now.year])
-    backup_basename = "_".join(['backup', dmy, os.path.basename(p.TARGET_PATH)])
+    backup_basename = "_".join(['backup', dmy, os.path.basename(file_name)])
     full_backup_path = os.path.join(backup_directory, backup_basename)
 
     try:
-        shutil.copy(file, full_backup_path)
+        shutil.copy(file_name, full_backup_path)
     except Exception as e:
         print(f'Warning: Failed to backup target file to {full_backup_path}. Error: {e}')
 
@@ -180,6 +183,25 @@ def str_contains_est_xx_mins_line(line) -> bool:
     # "est", followed by 1-3 digits or "?" characters, followed by "min". All case-insensitive.
     est_xx_mins_reg = re.compile(r'(est \d(\d)?(\d)? min)|(est \? min)|(est \?\? min)|(est \?\?\? min)', re.IGNORECASE)
     return bool(re.search(est_xx_mins_reg, line))
+
+
+def is_workout_note(note: Entry, raise_on_invalid_format=True) -> bool:
+    """
+    Returns True if the passed-in note is identified as a workout note, else False
+    :param note: the note as type Entry
+    :param raise_on_invalid_format: whether to raise if there's an est XX mins line but no date
+    :return: True / False
+    """
+    is_workout = str_contains_est_xx_mins_line(note.text)
+    if is_workout:
+        if raise_on_invalid_format:
+            try:
+                convert_string_to_datetime(note.title)
+            except ValueError as e:
+                msg = f"The note with this title '{note.title}' contains an est XX mins line but no date could be " \
+                      f"extracted from its title. This is an invalid combination."
+                raise ValueError(msg) from e
+    return is_workout
 
 
 def target_path_is_xslx(file_path: str) -> bool:

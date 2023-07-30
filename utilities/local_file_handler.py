@@ -1,11 +1,12 @@
 import os
 import datetime
 import params as p
-from typing import Dict, List
-from shared_types import Entry
+import utility_functions as uf
+from typing import List
+from shared_types import Entry, Handler
 
 
-class LocalFileHandler:
+class LocalFileHandler(Handler):
     # a class to handle all interactions with local files
     def __init__(self):
         self._notes = self.retrieve_notes()
@@ -19,12 +20,12 @@ class LocalFileHandler:
             raise ValueError(f"Could not find source directory {p.LOCAL_SOURCE_DIR}")
 
         print('Retrieving notes')
-        notes = self._retrieve_notes(directory=p.LOCAL_SOURCE_DIR)
+        notes = self._retrieve_recursively(directory=p.LOCAL_SOURCE_DIR)
         if notes:
             return notes
         print('No notes found! Incorrect username or password?')
 
-    def _retrieve_notes(self, directory: str, max_depth=2) -> List[Entry] | None:
+    def _retrieve_recursively(self, directory: str, max_depth=2) -> List[Entry] | None:
         """
         Recursively retrieve notes from local filesystem if found, or None if no notes are found.
         :param directory: the directory to search
@@ -37,7 +38,7 @@ class LocalFileHandler:
         notes = []
         for filename in os.listdir(directory):
             if os.path.isdir(os.path.join(directory, filename)):
-                notes.append(self._retrieve_notes(os.path.join(directory, filename), max_depth - 1))
+                notes.append(self._retrieve_recursively(os.path.join(directory, filename), max_depth - 1))
             elif filename.endswith(('.txt', '.md')):
                 with open(os.path.join(directory, filename), 'r') as f:
                     # get the file's modification timestamp as datetime
@@ -55,3 +56,13 @@ class LocalFileHandler:
             if note.title.casefold().strip() == p.BODYWEIGHTS_NOTE_TITLE.casefold().strip():
                 return note
         raise ValueError(f"Could not find note with title {p.BODYWEIGHTS_NOTE_TITLE}")
+
+    def replace_bodyweights_note(self, new_text):
+        """
+        Backup the old bodyweights note and replace it with a new one containing the new text.
+        :return:
+        """
+        bw_notes_path = self.return_bodyweights_note().path
+        uf.backup_file_to_dir(bw_notes_path, p.LOCAL_BACKUP_DIR)
+        with open(bw_notes_path, 'w') as f:
+            f.write(new_text)
