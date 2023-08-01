@@ -227,24 +227,10 @@ def write_to_file(wb, sheet, row_bodyweight_pairings: RowBodyweightPairings) -> 
 
 
 def main():
-    if not uf.target_path_is_xslx(p.TARGET_PATH):
-        raise ValueError(f"Target path specified in params.py does not point to xlsx file. "
-                         f"This is the path\n{p.TARGET_PATH}")
-    if not uf.target_sheet_exists(p.TARGET_PATH, p.TARGET_SHEET):
-        raise ValueError(f"Target xlsx does not contain sheet specified in params.py. "
-                         f"This is the path\n{p.TARGET_PATH}")
+    uf.validate_target_sheet_params()
 
     # use preferred retrieval method to retrieve notes
-    match p.RETRIEVAL_METHOD:
-        case p.GKEEPAPI_STR:
-            import utilities.keep_api_handler as Kf
-            handler = Kf.KeepApiHandler()
-        case p.LOCAL_STR:
-            import utilities.local_file_handler as Lr
-            handler = Lr.LocalFileHandler()
-        case _:
-            raise NotImplementedError(f"Retrieval method {p.RETRIEVAL_METHOD} not implemented. Did you spell it "
-                                      f"correctly?")
+    handler = uf.return_handler()
 
     wb = openpyxl.load_workbook(p.TARGET_PATH)
     sheet = wb[p.TARGET_SHEET]

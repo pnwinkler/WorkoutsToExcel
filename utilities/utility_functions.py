@@ -2,12 +2,34 @@ import re
 import os
 import shutil
 import openpyxl
+
 import utilities.params as p
 
 from shared_types import Entry
 from datetime import datetime
 from typing import Union, List
 from difflib import SequenceMatcher
+
+
+def validate_target_sheet_params() -> None:
+    if not target_path_is_xslx(p.TARGET_PATH):
+        raise ValueError(f"Target path specified in params.py does not point to xlsx file. "
+                         f"This is the path\n{p.TARGET_PATH}")
+    if not target_sheet_exists(p.TARGET_PATH, p.TARGET_SHEET):
+        raise ValueError(f"Target xlsx does not contain sheet specified in params.py. "
+                         f"This is the path\n{p.TARGET_PATH}")
+
+
+def return_handler() -> 'LocalFileHandler' | 'KeepApiHandler':
+    match p.RETRIEVAL_METHOD:
+        case p.GKEEPAPI_STR:
+            import utilities.keep_api_handler as Kf
+            return Kf.KeepApiHandler()
+        case p.LOCAL_STR:
+            import utilities.local_file_handler as Lr
+            return Lr.LocalFileHandler()
+        case _:
+            raise NotImplementedError(f"Retrieval method {p.RETRIEVAL_METHOD} not implemented.")
 
 
 def backup_file_to_dir(file_name: str, backup_directory: str) -> None:
@@ -168,40 +190,6 @@ def return_first_empty_bodyweight_row(sheet, date_column: int, bodyweight_column
     raise ValueError(f"Failed to find empty bodyweight cell.")
 
 
-def str_contains_est_xx_mins_line(line) -> bool:
-    """
-    Returns true if the input string contains an expression matching some variation of "Est ? mins" or "Est 52 mins",
-    which is the string that we use to identify workout notes.
-    :param line: the string to evaluate
-    :return: True / False
-    """
-    # This regex is fundamental to how the programs in this repo work, and cannot be changed without significant
-    # consequences. Consequences:
-    # 1) workout notes are identified in Google Keep differently
-    # 2) workouts are written differently to the Excel file
-
-    # "est", followed by 1-3 digits or "?" characters, followed by "min". All case-insensitive.
-    est_xx_mins_reg = re.compile(r'(est \d(\d)?(\d)? min)|(est \? min)|(est \?\? min)|(est \?\?\? min)', re.IGNORECASE)
-    return bool(re.search(est_xx_mins_reg, line))
-
-
-def is_workout_note(note: Entry, raise_on_invalid_format=True) -> bool:
-    """
-    Returns True if the passed-in note is identified as a workout note, else False
-    :param note: the note as type Entry
-    :param raise_on_invalid_format: whether to raise if there's an est XX mins line but no date
-    :return: True / False
-    """
-    is_workout = str_contains_est_xx_mins_line(note.text)
-    if is_workout:
-        if raise_on_invalid_format:
-            try:
-                convert_string_to_datetime(note.title)
-            except ValueError as e:
-                msg = f"The note with this title '{note.title}' contains an est XX mins line but no date could be " \
-                      f"extracted from its title. This is an invalid combination."
-                raise ValueError(msg) from e
-    return is_workout
 
 
 def target_path_is_xslx(file_path: str) -> bool:
