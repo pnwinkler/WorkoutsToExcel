@@ -1,12 +1,26 @@
-* UPDATE * : This project is on hold and not working, for now. One of this project's dependencies, gkeepapi, is not successfully connecting to Google Keep. Once that issue is resolved, I'm likely to resume development on this project. Thanks to the gkeepapi team for having made a hitherto excellent unofficial API. 
+This is a personal project. This means you can use it as you like, but please note that I expect nothing of you, and promise nothing to you.
 
-A set of tools facilitating interactions between Google Keep Notes, and a local xlsx file. Bodyweights2Calc retrieves bodyweights from Google Keep and writes them to an xlsx file. Keep2Calc does the same with workouts. KeepPruner deletes notes from Google Keep. For more details, consult their README files. 
+# What this repo contains
 
-Before using any of these programs, please set paths in utilities/params.py
+A set of tools facilitating interactions between source files (either Google Keep Notes via API, or local text files),
+and a local xlsx file.
 
-I suggest testing each program before trusting it.
+- BodyweightsToExcel retrieves bodyweights from source files and writes them to an xlsx file.
+- WorkoutsToExcel does the same with workouts.
+- KeepPruner deletes redundant source files.
 
-Some guidance may be provided in each folder's README, but they are approximations (as the codebase changes), and should not be too heavily relied on.
+For more details, consult their README files.
+
+# How to use these scripts
+
+- Glance over the code to see if it does what you want
+- Set variables in utilities/params.py
+- Do a trial run
+- If it works, consider scheduling it, e.g. via cron job to run it regularly, and maybe forking it, if you'd like to adjust the code to your needs.
+
+# Worth noting
+
+- The library used for Google Keep API is unofficial, and **may break** at any time.
+- The wiki documentation may be a bit dated, and I make no promises that the rest of the documentation is fully current.
 
 These programs are distributed under the MIT license. They're free software, without warranty.
-
