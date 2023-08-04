@@ -1,13 +1,12 @@
-import re
 import os
 import shutil
 import openpyxl
 
 import utilities.params as p
 
-from shared_types import Entry
 from datetime import datetime
 from typing import Union, List
+from shared_types import Handler
 from difflib import SequenceMatcher
 
 
@@ -20,14 +19,14 @@ def validate_target_sheet_params() -> None:
                          f"This is the path\n{p.TARGET_PATH}")
 
 
-def return_handler() -> 'LocalFileHandler' | 'KeepApiHandler':
+def return_handler() -> Handler:
     match p.RETRIEVAL_METHOD:
         case p.GKEEPAPI_STR:
-            import utilities.keep_api_handler as Kf
-            return Kf.KeepApiHandler()
+            import utilities.keep_api_handler as kf
+            return kf.KeepApiHandler()
         case p.LOCAL_STR:
-            import utilities.local_file_handler as Lr
-            return Lr.LocalFileHandler()
+            import utilities.local_file_handler as lr
+            return lr.LocalFileHandler()
         case _:
             raise NotImplementedError(f"Retrieval method {p.RETRIEVAL_METHOD} not implemented.")
 
@@ -86,7 +85,7 @@ def convert_string_to_datetime(date_str: str, regress_future_dates=True) -> date
 
 
 def date_to_short_string(the_date: Union[datetime, str]) -> str:
-    # todo: get rid of this function if possible
+    # todo: get rid of this function if practical
     """
     Given a datetime object or string, return an abbreviated string representation of it. Raise on failure
     :param the_date: a string or datetime representation of a date
@@ -122,13 +121,14 @@ def count_empty_contiguous_rows_within_range(sheet, start_row: int, end_row: int
     return count
 
 
-def find_row_of_cell_matching_datetime(sheet: openpyxl.workbook.workbook.Worksheet,
+# todo: refactor
+def find_row_of_cell_matching_datetime(sheet,
                                        datetime_target: datetime.date,
-                                       date_column: int,
+                                       date_column: int | str,
                                        raise_on_failure=False) -> int:
     """
-    Returns row value of cell containing specified date, in specified column. Returns -1 if not found
-    :param sheet: a valid sheet object in an xlsx file
+    Returns row value of cell containing specified date in specified column. Returns -1 if not found
+    :param sheet: an Excel sheet object
     :param datetime_target: the datetime date to search for in the date_column
     :param date_column: the column in which to search for date
     :param raise_on_failure: whether to raise a RuntimeError or return -1 on failure to find matching date
@@ -142,12 +142,8 @@ def find_row_of_cell_matching_datetime(sheet: openpyxl.workbook.workbook.Workshe
     # find date cell matching the "date" parameter in the given sheet
     # note that in xlsx files: headers and strings are str, dates are datetime objects, empty cells are NoneType
     for cell in sheet[col_letter]:
-        val = cell.value
-
-        if isinstance(val, datetime):
-            #  This file is not used if RETRIEVAL_METHOD is set to "local" in params.py.
-            if val == datetime_target:
-                return cell.row
+        if isinstance(cell.value, datetime) and cell.value == datetime_target:
+            return cell.row
 
     if raise_on_failure:
         err_msg = f"Failed to find matching date cell in target sheet, column {col_letter}"
@@ -155,46 +151,47 @@ def find_row_of_cell_matching_datetime(sheet: openpyxl.workbook.workbook.Workshe
     return -1
 
 
-def return_first_empty_bodyweight_row(sheet, date_column: int, bodyweight_column: int) -> int:
+def return_first_absent_bodyweight_row(sheet, date_column: int, bodyweight_column: int) -> int:
     """
-    Search backwards from the row corresponding to today's date, in order to find the smallest row number, where:
-     1) said row contains a date string in the date column, but no bodyweight in the bodyweights column,
-     2) and where the row above has filled in date and bodyweight cells.
-    We disregard empty rows, and return upon finding a row with lower index matching the above conditions.
+    Find the smallest row number, where:
+     1) said row contains a date string in the date column
+     2) said row contains no bodyweight in the bodyweights column
+     3) the row above said row contains both date and bodyweight values.
     :param sheet: the Excel sheet
-    :param date_column: the column in which date values are saved, e.g. 22/05/2021
+    :param date_column: the column in which date values are saved
     :param bodyweight_column: the column in which bodyweights are saved
     :return: an integer, representing a row number
     """
 
-    today = datetime.now()
-    todays_row = find_row_of_cell_matching_datetime(sheet, today, date_column)
+    todays_row = find_row_of_cell_matching_datetime(sheet, datetime.now(), date_column)
     if sheet.cell(row=todays_row, column=bodyweight_column).value:
         raise ValueError(f"Today's bodyweight cell is already written to")
 
     first_occurrence = None
-    for row in range(todays_row, 1, -1):
-        # search backwards
+    for row in range(todays_row, 0, -1):
+        # search backwards, for performance reasons
         date_cell_value = sheet.cell(row=row, column=date_column).value
         bw_cell_value = sheet.cell(row=row, column=bodyweight_column).value
         row_has_date = isinstance(date_cell_value, datetime)
         row_has_bodyweight = isinstance(bw_cell_value, (str, float, int))
 
         if row_has_date and not row_has_bodyweight:
+            # suitable candidate
             first_occurrence = row
         if row_has_date and row_has_bodyweight:
             # we've reached the previously filled in row.
             if first_occurrence:
                 return first_occurrence
 
-    raise ValueError(f"Failed to find empty bodyweight cell.")
+            # we found no matches
+            break
 
-
+    raise ValueError("Failed to find empty bodyweight cell.")
 
 
 def target_path_is_xslx(file_path: str) -> bool:
     filename, extension = os.path.splitext(file_path)
-    return extension == '.xlsx'
+    return extension in ['.xlsx', '.xls']
 
 
 def target_sheet_exists(excel_path: str, target_sheet_name: str) -> bool:

@@ -9,7 +9,7 @@ from shared_types import Entry, Handler
 class LocalFileHandler(Handler):
     # a class to handle all interactions with local files
     def __init__(self):
-        self._notes = self.retrieve_notes()
+        self._notes: List[Entry] = self.retrieve_notes()
 
     def retrieve_notes(self) -> List[Entry] | None:
         """
@@ -66,3 +66,10 @@ class LocalFileHandler(Handler):
         uf.backup_file_to_dir(bw_notes_path, p.LOCAL_BACKUP_DIR)
         with open(bw_notes_path, 'w') as f:
             f.write(new_text)
+
+    def trash_notes(self, notes: List[Entry]) -> None:
+        # todo: find cleaner solution
+        backup_dir = os.path.join(p.LOCAL_BACKUP_DIR, 'trashed_notes')
+        for note in notes:
+            uf.backup_file_to_dir(note.path, backup_dir)
+            os.remove(note.path)

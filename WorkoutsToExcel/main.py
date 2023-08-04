@@ -4,7 +4,7 @@
 # 2) non-workout notes may be misidentified as workouts.
 import datetime
 
-import Keep2Calc.keep_to_calc as ktc
+import workout_parsing as wp
 import utilities.utility_functions as uf
 import os
 import utilities.params as p
@@ -46,13 +46,13 @@ def main():
                          f"belongs to which row in the target file. \n{duplicated_titles=}")
 
     # get each workout into a writeable format
-    parsed_workouts = ktc.parse_workout_notes(workout_notes)
+    parsed_workouts = wp.parse_workout_notes(workout_notes)
 
     # pair the parsed workouts with target rows in the Excel file
-    data_to_write = ktc.pair_workouts_with_rows(parsed_workouts)
+    data_to_write = wp.pair_workouts_with_rows(parsed_workouts)
 
     # write it to target file
-    ktc.write_data_to_xlsx(data_to_write, backup=True)
+    wp.write_data_to_xlsx(data_to_write, backup=True)
 
     print("All done! Consider double-checking the now-updated target file, then running KeepPruner if you'd like to "
           "delete the old entries from Keep")

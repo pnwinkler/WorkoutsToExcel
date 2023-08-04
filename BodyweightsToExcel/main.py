@@ -1,6 +1,5 @@
 # retrieves bodyweights, then writes them to the correct row in the target file (specified in params.py).
 import openpyxl
-import time
 from datetime import datetime, timedelta
 from collections import UserDict
 from typing import List, Union, Tuple
@@ -54,7 +53,7 @@ def return_most_recent_bodyweights(bodyweights: List[str], desired_count: int) -
     try:
         history = bodyweights[-desired_count:]
     except IndexError:
-        # history greater than the number of bodyweights in Note
+        # history greater than the number of bodyweights in note
         history = bodyweights
 
     return [entry.replace(' ', '') for entry in history]
@@ -243,14 +242,14 @@ def main():
 
     if bw_note.edit_timestamp < today:
         print("- You have not edited your bodyweights note today.")
-        print("- Please add today's bodyweight to the note. Then run the program again")
-        print("- If you don't remember it, a question mark will be fine")
+        print("- Please add today's bodyweight to the note. Then run the program again.")
+        print("- If you don't remember it, a question mark will be fine.")
         print(f"Note edit timestamp={bw_note.edit_timestamp}, note text=\"{bw_note.text}\"")
         exit()
 
-    start_row = uf.return_first_empty_bodyweight_row(sheet,
-                                                     date_column=p.DATE_COLUMN,
-                                                     bodyweight_column=p.BODYWEIGHT_COLUMN)
+    start_row = uf.return_first_absent_bodyweight_row(sheet,
+                                                      date_column=p.DATE_COLUMN,
+                                                      bodyweight_column=p.BODYWEIGHT_COLUMN)
     todays_row = uf.find_row_of_cell_matching_datetime(sheet, today, date_column=p.DATE_COLUMN)
 
     if start_row == -1:
@@ -267,7 +266,7 @@ def main():
                                                                            split_on_parenthesis=True)
 
     if len(uncommitted_bodyweights) == 0:
-        print("INFO: no bodyweights found in Keep note. There is nothing new to write\nExiting")
+        print("INFO: no bodyweights found in note. There is nothing new to write\nExiting")
         exit()
 
     # check if every day between the date of the last entry and today has a corresponding bodyweight in the note

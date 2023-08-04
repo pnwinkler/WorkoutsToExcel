@@ -19,8 +19,8 @@ LOCAL_SOURCE_DIR = "YOUR/PATH/TO/LOCAL/NOTES"
 TARGET_PATH = "YOUR/PATH/TO/EXCEL.xlsx"
 TARGET_SHEET = 'Bodyweight and workouts'
 
-# specifies the full path for the directory into which files will be backed up. Specifically: the file specified by
-# TARGET_PATH, and also the bodyweights file if running locally.
+# specifies the full path for the directory into which files will be backed up. For example: the file specified by
+# TARGET_PATH, the bodyweights file if running locally, and potentially workout files.
 LOCAL_BACKUP_DIR = "YOUR/PATH/TO/BACKUP_DIR"
 
 # these variables specify which columns the program expects to find dates, bodyweights and workouts in, within the

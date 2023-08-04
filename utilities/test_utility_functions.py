@@ -1,5 +1,6 @@
 from GKeepToCalc.utilities.utility_functions import *
 
+
 # todo: add more tests here
 
 def test_is_est_xx_mins_line():
@@ -10,6 +11,3 @@ def test_is_est_xx_mins_line():
     assert is_est_xx_mins_line('Est 68 mins')
     assert is_est_xx_mins_line('Est 6 mins')
     assert is_est_xx_mins_line('Est 58.2 mins') is False
-
-
-

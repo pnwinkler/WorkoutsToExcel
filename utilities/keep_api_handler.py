@@ -6,7 +6,7 @@ import time
 import params as p
 from datetime import datetime
 from functools import cache
-from typing import List
+from typing import Dict, List
 from utilities.utility_functions import convert_string_to_datetime
 from shared_types import Entry, Handler
 
@@ -15,7 +15,9 @@ class KeepApiHandler(Handler):
     # a class to handle all interactions with Google Keep using gkeepapi
     def __init__(self):
         self._keep_obj = self._login_and_return_keep_obj()
-        self._notes: List[Entry] = self.retrieve_notes()
+
+        # used when deleting notes, for example. Keep a dict of note identifiers and note objects
+        self._note_objects: Dict[str, gkeepapi.node.Note] = {}
 
     def _login_and_return_keep_obj(self) -> gkeepapi.Keep:
         """
@@ -53,9 +55,14 @@ class KeepApiHandler(Handler):
         # if there are no notes, this function returns an empty list
         notes = self._keep_obj.find(trashed=get_trashed, archived=get_archived)
         if notes:
+            # save for later use. todo: find a cleaner implementation
+            self._note_objects = {note.id: note for note in notes}
             notes: List[gkeepapi.node.Note]
             return [
-                Entry(title=note.title, text=note.text, edit_timestamp=note.timestamps.edited)
+                Entry(title=note.title,
+                      text=note.text,
+                      edit_timestamp=note.timestamps.edited,
+                      unique_identifier=note.id)
                 for note in notes
             ]
         print('No notes found! Incorrect username or password?')
@@ -98,7 +105,7 @@ class KeepApiHandler(Handler):
         if len(matches) > 1:
             raise ValueError(
                 f"Several Notes found with \"{p.BODYWEIGHTS_NOTE_TITLE}\" in their title. Unable to determine"
-                " which is the correct Note. Please trash the incorrect Note, or update the value ofthe bodyweights "
+                " which is the correct Note. Please trash the incorrect Note, or update the value of the bodyweights "
                 " note title in params.py")
         return matches[0]
 
@@ -115,4 +122,16 @@ class KeepApiHandler(Handler):
         self._keep_obj.sync()
         print("Synchronizing")
         # without a wait sometimes sync doesn't complete
+        time.sleep(3)
+
+    def trash_notes(self, notes: List[Entry]) -> None:
+        # trash() is reversible. delete() is not. Trashed notes will be deleted in 7 days.
+        ids_to_be_deleted = [note.unique_identifier for note in notes]
+        for note_id, gkeep_note in self._note_objects.items():
+            if note_id in ids_to_be_deleted:
+                gkeep_note: gkeepapi.node.Note
+                gkeep_note.trash()
+        print("Synchronizing")
+        self._keep_obj.sync()
+        # give sync time, in case of poor internet
         time.sleep(3)

@@ -1,4 +1,4 @@
-from GKeepToCalc.KeepPruner.main import *
+from NotePruner.main import *
 
 
 # class LocalNote:

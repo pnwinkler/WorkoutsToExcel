@@ -3,7 +3,9 @@ import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
+from typing import List
 import utility_functions as uf
+
 
 # TODO: move this check from other files into here?
 # track which note titles we've already seen
@@ -17,13 +19,10 @@ class Entry:
     edit_timestamp: datetime | None = None
     path = None  # could be a Keep URL or a full file path on the local system, for example
 
-    def _is_workout_note(self) -> bool:
-        """
-        Returns True if the passed-in note is identified as a workout note, else False
-        :param raise_on_invalid_format: whether to raise if there's an est XX mins line but no date
-        :return: True / False
-        """
+    # optional field
+    unique_identifier: str | None = None
 
+    def _is_workout_note(self) -> bool:
         # "est ", followed by 1-3 digits or "?" characters, followed by " min" (case-insensitive). For example:
         # "Est 52 min", "est 5 mins", "Est ? mins", "est ?? mins"
         est_xx_mins_reg = re.compile(r'est (\d{1,3})|(\?{1,3}) min', re.IGNORECASE)
@@ -46,15 +45,22 @@ class Entry:
 
 class Handler(ABC):
     @abstractmethod
-    def retrieve_notes(self) -> None:
+    def retrieve_notes(self) -> List[Entry] | None:
         pass
 
     @abstractmethod
     def return_bodyweights_note(self) -> Entry:
+        # return a *representation* of the note containing bodyweights.
         pass
 
     @abstractmethod
     def replace_bodyweights_note(self, new_text) -> None:
-        # we don't take the title as an argument because it's needs to equal the existing title in order for us to
-        # identify the note as the bodyweights note
+        # replace either the contents of the note containing bodyweights, or the entire note itself. We don't take
+        # the title as an argument because it needs to equal the existing title in order for us to identify that note
+        # as the bodyweights note in future
+        pass
+
+    @abstractmethod
+    def trash_notes(self, notes: List[Entry]) -> None:
+        # trash the given notes
         pass
