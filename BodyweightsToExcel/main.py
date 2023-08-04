@@ -161,7 +161,7 @@ def _validate_bodyweight_note_text(bw_note_text: str) -> None:
                          "1-2 optional decimal places, and each bodyweight should be followed by a comma")
 
 
-def pair_new_bodyweights_with_rows(sheet, bodyweights: List[float, str], start_row: int, max_empty_rows=10) \
+def pair_new_bodyweights_with_rows(sheet, bodyweights: List[float | str], start_row: int, max_empty_rows=10) \
         -> RowBodyweightPairings:
     """
     :param sheet: sheet in xlsx file containing bodyweights and dates
