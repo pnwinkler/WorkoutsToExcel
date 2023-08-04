@@ -1,11 +1,9 @@
 import re
 import openpyxl
 from datetime import datetime
-from dateutil.parser import parse
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import List
 from utilities.shared_types import Entry
-import gkeepapi.node
 import utilities.params as p
 import utilities.utility_functions as uf
 
