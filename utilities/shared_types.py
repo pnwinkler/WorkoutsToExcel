@@ -4,7 +4,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from typing import List
-import utility_functions as uf
 
 
 # TODO: move this check from other files into here?
@@ -35,7 +34,9 @@ class Entry:
         try:
             # if we can't convert the note title to a datetime, then the note does not match the format we expect of a
             # workout note
-            uf.convert_string_to_datetime(self.title)
+            # import here to avoid circular import
+            from utilities.utility_functions import convert_string_to_datetime
+            convert_string_to_datetime(self.title)
         except ValueError as e:
             msg = f"The note with this title '{self.title}' contains an est XX mins line but no date could be " \
                   f"extracted from its title. This is an invalid combination."

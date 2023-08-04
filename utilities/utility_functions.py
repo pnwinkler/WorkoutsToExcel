@@ -6,7 +6,7 @@ import utilities.params as p
 
 from datetime import datetime
 from typing import Union, List
-from shared_types import Handler
+from utilities.shared_types import Handler
 from difflib import SequenceMatcher
 
 
