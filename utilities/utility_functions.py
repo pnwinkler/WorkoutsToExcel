@@ -163,7 +163,7 @@ def return_first_absent_bodyweight_row(sheet, date_column: int, bodyweight_colum
     :return: an integer, representing a row number
     """
 
-    todays_row = find_row_of_cell_matching_datetime(sheet, datetime.now(), date_column)
+    todays_row = find_row_of_cell_matching_datetime(sheet, datetime.now(), date_column, raise_on_failure=True)
     if sheet.cell(row=todays_row, column=bodyweight_column).value:
         raise ValueError(f"Today's bodyweight cell is already written to")
 

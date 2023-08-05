@@ -3,17 +3,18 @@
 import getpass
 import gkeepapi
 import time
-import params as p
+import utilities.params as p
 from datetime import datetime
 from functools import cache
 from typing import Dict, List
 from utilities.utility_functions import convert_string_to_datetime
-from shared_types import Entry, Handler
+from utilities.shared_types import Entry, Handler
 
 
 class KeepApiHandler(Handler):
     # a class to handle all interactions with Google Keep using gkeepapi
     def __init__(self):
+        super().__init__()
         self._keep_obj = self._login_and_return_keep_obj()
 
         # used when deleting notes, for example. Keep a dict of note identifiers and note objects

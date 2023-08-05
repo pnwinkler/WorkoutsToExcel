@@ -1,51 +1,61 @@
 import os
 import datetime
-import params as p
-import utility_functions as uf
+import utilities.params as p
+import utilities.utility_functions as uf
 from typing import List
-from shared_types import Entry, Handler
+from utilities.shared_types import Entry, Handler
 
 
 class LocalFileHandler(Handler):
     # a class to handle all interactions with local files
     def __init__(self):
+        super().__init__()
+
+        # the extensions of the files that are considered notes
+        self._source_file_extensions = ('.txt', '.md')
         self._notes: List[Entry] = self.retrieve_notes()
 
-    def retrieve_notes(self) -> List[Entry] | None:
+    def retrieve_notes(self) -> List[Entry]:
         """
         Retrieve all notes from local filesystem, or None if no notes are found.
         :return: a dict of note objects, where the keys are the note titles, and the values are the note contents
         """
         if not os.path.exists(p.LOCAL_SOURCE_DIR):
-            raise ValueError(f"Could not find source directory {p.LOCAL_SOURCE_DIR}")
+            raise ValueError(f"Could not find source directory `{p.LOCAL_SOURCE_DIR}`")
 
         print('Retrieving notes')
         notes = self._retrieve_recursively(directory=p.LOCAL_SOURCE_DIR)
         if notes:
             return notes
-        print('No notes found! Incorrect username or password?')
+        print(f"No notes found in the following directory or any of its children `{p.LOCAL_SOURCE_DIR}`!")
+        return []
 
-    def _retrieve_recursively(self, directory: str, max_depth=2) -> List[Entry] | None:
+    def _retrieve_recursively(self, directory: str, max_depth=2) -> List[Entry]:
         """
         Recursively retrieve notes from local filesystem if found, or None if no notes are found.
         :param directory: the directory to search
         :param max_depth: break if this depth is reached
         :return:
         """
-        if max_depth == 0:
-            return None
+        # todo: rename this variable
+        if max_depth == -1:
+            return []
 
         notes = []
         for filename in os.listdir(directory):
             if os.path.isdir(os.path.join(directory, filename)):
-                notes.append(self._retrieve_recursively(os.path.join(directory, filename), max_depth - 1))
-            elif filename.endswith(('.txt', '.md')):
+                notes.extend(self._retrieve_recursively(os.path.join(directory, filename), max_depth - 1))
+            elif filename.endswith(self._source_file_extensions):
                 with open(os.path.join(directory, filename), 'r') as f:
                     # get the file's modification timestamp as datetime
                     timestamp = os.path.getmtime(os.path.join(directory, filename))
                     as_datetime = datetime.datetime.fromtimestamp(timestamp)
-                    notes.append(Entry(title=filename, text=f.read(), edit_timestamp=as_datetime))
-        return notes if notes else None
+                    # drop the file extension
+                    notes.append(Entry(title=os.path.splitext(filename)[0], text=f.read(), edit_timestamp=as_datetime,
+                                       path=os.path.join(directory, filename)))
+        if not any(notes):
+            return []
+        return [note for note in notes if note]
 
     def return_bodyweights_note(self) -> Entry:
         """
@@ -55,7 +65,7 @@ class LocalFileHandler(Handler):
         for note in self._notes:
             if note.title.casefold().strip() == p.BODYWEIGHTS_NOTE_TITLE.casefold().strip():
                 return note
-        raise ValueError(f"Could not find note with title {p.BODYWEIGHTS_NOTE_TITLE}")
+        raise ValueError(f"Could not find note with title `{p.BODYWEIGHTS_NOTE_TITLE}`")
 
     def replace_bodyweights_note(self, new_text):
         """

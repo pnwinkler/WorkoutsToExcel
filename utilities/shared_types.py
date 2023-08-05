@@ -16,7 +16,7 @@ class Entry:
     text: str
     title: str
     edit_timestamp: datetime | None = None
-    path = None  # could be a Keep URL or a full file path on the local system, for example
+    path: str | None = None  # could be a Keep URL or a full file path on the local system, for example
 
     # optional field
     unique_identifier: str | None = None
@@ -42,6 +42,10 @@ class Entry:
                   f"extracted from its title. This is an invalid combination."
             raise ValueError(msg) from e if raise_on_invalid_format else print(msg)
         return True
+
+    def __repr__(self):
+        return (f"Entry(title='{self.title}', text='{self.text[:20]}...', edit_timestamp={self.edit_timestamp}, "
+                f"unique_identifier={self.unique_identifier})")
 
 
 class Handler(ABC):

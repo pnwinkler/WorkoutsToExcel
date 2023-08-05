@@ -93,8 +93,7 @@ def return_depunctuated_bodyweights_text(text,
     return txt
 
 
-def extract_bodyweights_from_validated_string(raw_string, split_on_parenthesis: bool) \
-        -> Union[List, Tuple[List, List]]:
+def extract_bodyweights_from_string(raw_string, split_on_parenthesis: bool) -> Union[List, Tuple[List, List]]:
     """
     Given a validated string, return the list of bodyweights found in that string. If split_on_parentheses,
     then return two lists - one containing values found inside parentheses, and one containing those outside
@@ -105,6 +104,10 @@ def extract_bodyweights_from_validated_string(raw_string, split_on_parenthesis: 
 
     # need to validate before proceeding
     _validate_bodyweight_note_text(raw_string)
+
+    # add spaces after commas, so that we can split on spaces later even if user forgot spaces between 2 bodyweights,
+    # e.g. "75.2,75.4" -> "75.2, 75.4"
+    raw_string = raw_string.replace(",", ", ")
     depunc_str = return_depunctuated_bodyweights_text(raw_string,
                                                       keep_decimal_places=True,
                                                       keep_spaces=True,
@@ -236,11 +239,11 @@ def main():
     bw_note: Entry = handler.return_bodyweights_note()
 
     # if this program is run after 5 AM, then expect the note to have been edited today. Else, yesterday.
-    today = datetime.now().date()
+    today = datetime.now()
     if datetime.now().hour < 5:
         today -= timedelta(days=1)
 
-    if bw_note.edit_timestamp < today:
+    if bw_note.edit_timestamp < today.replace(hour=0, minute=0, second=0, microsecond=0):
         print("- You have not edited your bodyweights note today.")
         print("- Please add today's bodyweight to the note. Then run the program again.")
         print("- If you don't remember it, a question mark will be fine.")
@@ -262,8 +265,8 @@ def main():
 
     # separate bodyweights that have been committed to file (which are saved in the history / context window) from those
     # that have not
-    _, uncommitted_bodyweights = extract_bodyweights_from_validated_string(raw_string=bw_note.text,
-                                                                           split_on_parenthesis=True)
+    _, uncommitted_bodyweights = extract_bodyweights_from_string(raw_string=bw_note.text,
+                                                                 split_on_parenthesis=True)
 
     if len(uncommitted_bodyweights) == 0:
         print("INFO: no bodyweights found in note. There is nothing new to write\nExiting")
@@ -273,11 +276,10 @@ def main():
     num_expected_bodyweights = (todays_row - start_row + 1)
     if num_expected_bodyweights != len(uncommitted_bodyweights):
         raise ValueError(
-            ("Number of bodyweights provided in the bodyweights note does not match the number of days for which we "
-             "expect a bodyweight (which is 1 per day for every day since the last program run). "
-             f"Expected {num_expected_bodyweights} bodyweights but found {len(uncommitted_bodyweights)} "
-             "bodyweights. \nPlease correct the bodyweights note. " f"If you've forgotten a value, then a question "
-             "mark is a valid substitute for that bodyweight.")
+            (f"Number of bodyweights provided in the bodyweights note `{len(uncommitted_bodyweights)}` does not match "
+             f"the number of days for which we expect a bodyweight `{num_expected_bodyweights}` (which is 1 per day "
+             f"for every day since the last program run)\nPlease correct the bodyweights note. If you've forgotten a "
+             f"value, then a question mark is a valid substitute for that bodyweight.")
         )
 
     # check if the number of empty cells in the Excel matches the number of bodyweights in the note
@@ -301,7 +303,7 @@ def main():
 
     # prepare history (or "context window") of the most recently committed-to-file bodyweights, to be written to the
     # bodyweight note
-    all_bodyweights = extract_bodyweights_from_validated_string(bw_note.text, split_on_parenthesis=False)
+    all_bodyweights = extract_bodyweights_from_string(bw_note.text, split_on_parenthesis=False)
     most_recent_bodyweights: List[str] = return_most_recent_bodyweights(bodyweights=all_bodyweights,
                                                                         desired_count=p.HISTORY_LENGTH)
     history: str = format_bodyweight_history(most_recent_bodyweights)
