@@ -4,6 +4,7 @@ import utilities.params as p
 import utilities.utility_functions as uf
 from typing import List
 from utilities.shared_types import Entry, Handler
+from functools import cache
 
 
 class LocalFileHandler(Handler):
@@ -15,6 +16,7 @@ class LocalFileHandler(Handler):
         self._source_file_extensions = ('.txt', '.md')
         self._notes: List[Entry] = self.retrieve_notes()
 
+    @cache
     def retrieve_notes(self) -> List[Entry]:
         """
         Retrieve all notes from local filesystem, or None if no notes are found.
@@ -38,12 +40,12 @@ class LocalFileHandler(Handler):
         :return:
         """
         # todo: rename this variable
-        if max_depth == -1:
+        if (max_depth == -1) or (directory == p.LOCAL_BACKUP_DIR):
             return []
 
         notes = []
         for filename in os.listdir(directory):
-            if os.path.isdir(os.path.join(directory, filename)):
+            if os.path.isdir(os.path.join(directory, filename)) and "backup" not in filename.lower():
                 notes.extend(self._retrieve_recursively(os.path.join(directory, filename), max_depth - 1))
             elif filename.endswith(self._source_file_extensions):
                 with open(os.path.join(directory, filename), 'r') as f:
