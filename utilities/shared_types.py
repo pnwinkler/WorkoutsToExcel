@@ -6,41 +6,43 @@ from datetime import datetime
 from typing import List
 
 
-# TODO: move this check from other files into here?
-# track which note titles we've already seen
-# seen_note_titles = []
-
 @dataclass()
 class Entry:
     # contains the title and contents of a note, plus relevant metadata
     text: str
     title: str
     edit_timestamp: datetime | None = None
-    path: str | None = None  # could be a Keep URL or a full file path on the local system, for example
 
-    # optional field
+    path: str | None = None  # could be a Keep URL or a full file path on the local system, for example
     unique_identifier: str | None = None
 
-    def _is_workout_note(self) -> bool:
+    def __post_init__(self):
+        # if the note is a workout note, parse the title to get the date, else set it to None.
+        self.title_datetime: datetime | None = None
+        if self.is_valid_workout_note(raise_on_invalid_format=False):
+            # given a title like "2023-07-20 Deadlift day cycle 13 week 1.md", convert it to a datetime
+            from utilities.utility_functions import convert_string_to_datetime
+            date_str = self.title.split()[0]
+            self.title_datetime = convert_string_to_datetime(date_str, regress_future_dates=False)
+
+    def is_valid_workout_note(self, raise_on_invalid_format=False) -> bool:
+
+        # 1. the note must contain an "est XX mins" line
         # "est ", followed by 1-3 digits or "?" characters, followed by " min" (case-insensitive). For example:
         # "Est 52 min", "est 5 mins", "Est ? mins", "est ?? mins"
         est_xx_mins_reg = re.compile(r'est (\d{1,3})|(\?{1,3}) min', re.IGNORECASE)
-        return bool(re.search(est_xx_mins_reg, self.text))
-
-    def is_valid_workout_note(self, raise_on_invalid_format=False) -> bool:
-        if not self._is_workout_note():
+        if not bool(re.search(est_xx_mins_reg, self.text)):
             return False
 
-        try:
-            # if we can't convert the note title to a datetime, then the note does not match the format we expect of a
-            # workout note
-            # import here to avoid circular import
-            from utilities.utility_functions import convert_string_to_datetime
-            convert_string_to_datetime(self.title)
-        except ValueError as e:
+        # 2. the note must contain a date in the title, in the correct format
+        stripped_fmt = "YYYY-MM-DD".replace('-', '')
+        title_stripped = self.title.replace("-", "")
+        if not title_stripped[:len(stripped_fmt)].isdigit():
             msg = f"The note with this title '{self.title}' contains an est XX mins line but no date could be " \
                   f"extracted from its title. This is an invalid combination."
-            raise ValueError(msg) from e if raise_on_invalid_format else print(msg)
+            raise ValueError(msg) if raise_on_invalid_format else print(msg)
+            return False
+
         return True
 
     def __repr__(self):
