@@ -1,15 +1,17 @@
 #  This file contains functions that are used to interact with Google Keep, using the gkeepapi library.
 
-import os
 import getpass
-import gkeepapi
+import os
 import time
-import utilities.params as p
 from datetime import datetime
 from functools import cache
 from typing import Dict, List
-from utilities.utility_functions import convert_string_to_datetime
+
+import gkeepapi
+
+import utilities.params as p
 from utilities.shared_types import Entry, Handler
+from utilities.utility_functions import convert_string_to_datetime
 
 
 class KeepApiHandler(Handler):

@@ -1,6 +1,5 @@
 from NotePruner.main import *
 
-
 # class LocalNote:
 #     def __init__(self, text, title):
 #         self.text = text

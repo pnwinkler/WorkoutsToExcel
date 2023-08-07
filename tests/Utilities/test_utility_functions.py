@@ -1,6 +1,5 @@
 from GKeepToCalc.utilities.utility_functions import *
 
-
 # todo: add more tests here
 
 def test_is_est_xx_mins_line():

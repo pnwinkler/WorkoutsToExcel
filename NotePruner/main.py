@@ -1,13 +1,14 @@
 # this script interactively deletes workout notes that are already written to the target xlsx file,
 # up to a given, user-provided date
 
+from datetime import datetime, timedelta
+from typing import Dict, List
+
 import openpyxl
+from tabulate import tabulate
+
 import utilities.params as p
 import utilities.utility_functions as uf
-
-from tabulate import tabulate
-from typing import Dict, List
-from datetime import datetime, timedelta
 from utilities.shared_types import Entry
 
 

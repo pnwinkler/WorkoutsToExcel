@@ -1,11 +1,13 @@
 # retrieves bodyweights, then writes them to the correct row in the target file (specified in params.py).
-import openpyxl
-from datetime import datetime, timedelta
 from collections import UserDict
+from datetime import datetime, timedelta
 from typing import List, Tuple
-from utilities.shared_types import Entry
+
+import openpyxl
+
 import utilities.params as p
 import utilities.utility_functions as uf
+from utilities.shared_types import Entry
 
 
 class RowBodyweightPairings(UserDict):

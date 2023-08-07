@@ -1,5 +1,7 @@
 import os
+
 from WorkoutsToExcel.workout_parsing import *
+
 # from WorkoutsToExcel.keep2calc_tests.tst_solutions import *
 
 path_to_tests_folder = os.path.join(os.getcwd(), "keep2calc")

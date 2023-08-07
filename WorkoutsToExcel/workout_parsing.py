@@ -1,14 +1,13 @@
-import re
-import openpyxl
-from datetime import datetime
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Dict, List
-from utilities.shared_types import Entry
+
+import openpyxl
+
 import utilities.params as p
 import utilities.utility_functions as uf
+from utilities.shared_types import Entry
 
-
-# todo: add option to have year in note title, and to use that if provided?
 # todo: add tests. Make it clearer what each of these functions does.
 
 

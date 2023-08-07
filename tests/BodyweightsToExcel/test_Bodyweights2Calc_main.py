@@ -1,6 +1,8 @@
 import unittest
 from functools import partial
+
 from Bodyweights2Calc.main import *
+
 import utilities.params as params
 
 

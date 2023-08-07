@@ -1,10 +1,12 @@
+from collections import Counter
+from typing import List
+
 import openpyxl
 import workout_parsing as wp
-import utilities.utility_functions as uf
-from collections import Counter
-from utilities.shared_types import Entry
+
 import utilities.params as p
-from typing import List
+import utilities.utility_functions as uf
+from utilities.shared_types import Entry
 
 
 def main():
