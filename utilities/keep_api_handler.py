@@ -1,5 +1,6 @@
 #  This file contains functions that are used to interact with Google Keep, using the gkeepapi library.
 
+import os
 import getpass
 import gkeepapi
 import time
@@ -25,12 +26,8 @@ class KeepApiHandler(Handler):
         Login to Google Keep using gkeepapi, and return the Keep object.
         :return: the Keep object
         """
-        username, password = None, None
-        try:
-            from utilities.credentials import username, password
-        except FileNotFoundError:
-            print("You can save your username as an environment variable, which can save you from typing your username"
-                  "each time (see credentials.py)")
+        username = os.environ.get("GKEEP_EMAIL")
+        password = os.environ.get("KEEP_PASSPHRASE")
 
         if not username:
             username = input('Google Keep username: ')
