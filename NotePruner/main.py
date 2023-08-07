@@ -187,10 +187,7 @@ def return_note_text_minus_comments(note: Entry, remove_plus_signs=False) -> str
 
 
 def main():
-    if not uf.target_path_is_xslx(p.TARGET_PATH):
-        raise ValueError("TARGET_PATH in utilities.parameters incorrectly set. It does not point to an xlsx file")
-    if not uf.target_sheet_exists(p.TARGET_PATH, p.TARGET_SHEET):
-        raise ValueError("TARGET_SHEET in utilities.parameters incorrectly set. Sheet not found in xlsx file")
+    uf.validate_target_sheet_params()
 
     # fail early: try this before greeting the user, in case that it fails (e.g. because of user config problem)
     handler = uf.return_handler()
