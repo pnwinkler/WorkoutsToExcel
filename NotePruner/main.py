@@ -11,10 +11,7 @@ from datetime import datetime, timedelta
 from utilities.shared_types import Entry
 
 
-# todo: make the date_xlsx_snippet_dict less flimsy and more self explanatory
-
-
-def is_deletion_candidate(xlsx_snippets: Dict[str, str], note: Entry, end_date: datetime) -> bool:
+def is_deletion_candidate(xlsx_snippets: Dict[datetime, str], note: Entry, end_date: datetime) -> bool:
     # todo: test this properly
     """
     For a given note, return True if:
@@ -45,9 +42,9 @@ def is_deletion_candidate(xlsx_snippets: Dict[str, str], note: Entry, end_date: 
         return False
 
     # 3) is note already written to the target file?
-    date_key: str = uf.date_to_short_string(note.edit_timestamp)
+    floored_date: datetime = note.title_datetime.replace(hour=0, minute=0, second=0, microsecond=0)
     try:
-        xlsx_value = xlsx_snippets[date_key]
+        xlsx_value = xlsx_snippets[floored_date]
         if not xlsx_value:
             # there's a value, but it's the empty string or None type
             return False
@@ -58,21 +55,22 @@ def is_deletion_candidate(xlsx_snippets: Dict[str, str], note: Entry, end_date: 
     return True
 
 
-def retrieve_xlsx_workout_snippets(sheet) -> Dict[str, str]:
+def retrieve_xlsx_workout_snippets(sheet, max_row: int) -> Dict[datetime, str]:
     # return a dictionary where, for each day in the past year, the dictionary's key is that date, and its value the
     # string in the corresponding row in the target sheet, in the workouts column
     # todo: function name
     # todo: see if this row-determining logic should be moved out
-    todays_row = uf.find_row_of_cell_matching_datetime(sheet=sheet,
-                                                       datetime_target=datetime.now(),
-                                                       date_column=p.DATE_COLUMN)
-    min_row = max(todays_row - 365, 1)  # note that this may not retrieve a year of data, e.g. due to empty rows
+    if not max_row:
+        max_row = uf.find_row_of_cell_matching_datetime(sheet=sheet,
+                                                        datetime_target=datetime.now(),
+                                                        date_column=p.DATE_COLUMN)
+    min_row = max(max_row - 365, 1)  # note that this may not retrieve a year of data, e.g. due to empty rows
 
     xlsx_snippets = dict()
     for row in sheet.iter_rows(min_row=min_row,
                                min_col=0,
                                max_col=max(p.WORKOUT_COLUMN, p.DATE_COLUMN),
-                               max_row=todays_row,
+                               max_row=max_row,
                                values_only=False):
         # todo: use 0 index if practical
         # a "row" in this context is a tuple of cells
@@ -84,20 +82,19 @@ def retrieve_xlsx_workout_snippets(sheet) -> Dict[str, str]:
             # if there's no date, there's no snippet to store
             continue
         if not isinstance(date_value, datetime):
-            date_value = uf.convert_string_to_datetime(date_value)
-        # todo: consider using datetime keys instead. At the very least, that'll make type hints clearer
-        date = uf.date_to_short_string(date_value)
-        xlsx_snippets[date] = workout
+            date_value = uf.convert_string_to_datetime(date_value, regress_future_dates=False)
+            floored_date = date_value.replace(hour=0, minute=0, second=0)
+            xlsx_snippets[floored_date] = workout
 
     return xlsx_snippets
 
 
-def present_deletion_candidates(deletion_candidates: List[Entry], date_xlsx_snippet_dict: Dict[str, str]) -> None:
+def present_deletion_candidates(deletion_candidates: List[Entry], xlsx_snippets: Dict[datetime, str]) -> None:
     """
     Present deletion candidates to the user, in table format, demonstrating: the deletion_candidates, their
     corresponding values in the passed-in dictionary, and a percentage similarity rating of the two strings.
     :param deletion_candidates: a list of notes considered eligible for trashing.
-    :param date_xlsx_snippet_dict: a dictionary where each key is a workout's date, and each value its string
+    :param xlsx_snippets: a dictionary where each key is a workout's date, and each value its string
     representation in the target xlsx file.
 
     TABLE FORMATTED AS BELOW:
@@ -121,14 +118,12 @@ def present_deletion_candidates(deletion_candidates: List[Entry], date_xlsx_snip
         note_snippet = return_note_text_minus_comments(note, remove_plus_signs=True).replace('\n', ' ')
         note_snippet = note_snippet[:p.SNIPPET_LENGTH]
 
-        # note that we expect the note dates to be present, and in their titles
-        note_date = uf.convert_string_to_datetime(note.title)
-        printable_date = uf.date_to_short_string(note_date)
-        xlsx_snippet = date_xlsx_snippet_dict[printable_date].rstrip()[:p.SNIPPET_LENGTH]
+        floored_date = note.title_datetime.replace(hour=0, minute=0, second=0, microsecond=0)
+        xlsx_snippet = xlsx_snippets[floored_date].rstrip()[:p.SNIPPET_LENGTH]
         similarity = uf.get_string_pct_similarity(note_snippet, xlsx_snippet)
 
         # append the table row
-        tabulate_matrix.append([printable_date, note_snippet, xlsx_snippet, str(similarity) + "%"])
+        tabulate_matrix.append([floored_date, note_snippet, xlsx_snippet, str(similarity) + "%"])
 
     headers = ["Date", "Note snippet", "Exists in xlsx as...", "Similarity"]
     print(tabulate(tabulate_matrix, headers=headers))
@@ -147,7 +142,7 @@ def greet() -> None:
     greeting = "\n\t\t\t GKEEP NOTE DELETER \n" + \
                "\tdeletes workout notes from a google keep account up to a given date\n" \
                "\tprovided they are already written to file and you give your approval\n" \
-               "\t(Don't worry, we'll ask you before changing anything)\n"
+        # "\t(Don't worry, we'll ask you before changing anything)\n"
     print(greeting)
 
 
@@ -200,21 +195,22 @@ def main():
     # fail early: try this before greeting the user, in case that it fails (e.g. because of user config problem)
     handler = uf.return_handler()
     notes = handler.retrieve_notes()
-    if not notes:
-        print("No notes found. Nothing to prune. Program exiting")
-        exit()
     workout_notes = [note for note in notes if note.is_valid_workout_note()]
+    if not workout_notes:
+        print("No workout notes found. Nothing to prune. Program exiting")
+        exit()
 
     wb = openpyxl.load_workbook(p.TARGET_PATH)
     sheet = wb[p.TARGET_SHEET]
 
-    # resources are ready. Request user input.
+    # source and target are ready. Request user input.
     greet()
     end_date = request_end_date()
 
     calculated_dates = []
     deletion_candidates = []
-    xlsx_snippets = retrieve_xlsx_workout_snippets(sheet)
+    max_row = uf.find_row_of_cell_matching_datetime(sheet=sheet, datetime_target=end_date, date_column=p.DATE_COLUMN)
+    xlsx_snippets = retrieve_xlsx_workout_snippets(sheet, max_row=max_row)
     for note in workout_notes:
         if is_deletion_candidate(xlsx_snippets=xlsx_snippets, note=note, end_date=end_date):
             deletion_candidates.append(note)
@@ -230,20 +226,23 @@ def main():
                          "Please either correct their dates, or concatenate them into one note.\n"
                          f"Offenders = {sorted_offenders}")
 
-    present_deletion_candidates(deletion_candidates=deletion_candidates, date_xlsx_snippet_dict=xlsx_snippets)
+    present_deletion_candidates(deletion_candidates=deletion_candidates, xlsx_snippets=xlsx_snippets)
 
-    if is_deletion_requested():
-        certain = input("Press 'C' to confirm deletion. Any other key to undo: ").lower()
-        if certain != 'c':
-            print("No changes made")
-            exit()
-        else:
-            if deletion_candidates:
-                handler.trash_notes(deletion_candidates)
-            print("Specified notes deleted. Program execution complete")
-    else:
+    if not deletion_candidates:
+        print("No notes found to delete. Program exiting")
+        exit()
+
+    if not is_deletion_requested():
         print("No changes made")
         exit()
+
+    certain = input("Press 'C' to confirm deletion. Any other key to undo: ").lower().strip()
+    if certain != 'c':
+        print("No changes made")
+        exit()
+    else:
+        handler.trash_notes(deletion_candidates)
+        print("Specified notes deleted. Program execution complete")
 
 
 if __name__ == '__main__':
