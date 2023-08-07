@@ -84,19 +84,6 @@ def convert_string_to_datetime(date_str: str, regress_future_dates=True) -> date
     raise ValueError(f"Failed to convert this value to datetime: '{date_str}'")
 
 
-def date_to_short_string(the_date: Union[datetime, str]) -> str:
-    # todo: get rid of this function if practical
-    """
-    Given a datetime object or string, return an abbreviated string representation of it. Raise on failure
-    :param the_date: a string or datetime representation of a date
-    :return: an abbreviated string representation of the input
-    """
-    if isinstance(the_date, str):
-        the_date = convert_string_to_datetime(the_date)
-    # example output: '13 Jan' or '07 Mar'
-    return the_date.strftime('%d %b')
-
-
 def count_empty_contiguous_rows_within_range(sheet, start_row: int, end_row: int, cols_lst: List[int]) -> int:
     """
     Return an inclusive count of the contiguously empty rows between start and end rows, where all cells in each of
