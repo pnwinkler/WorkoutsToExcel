@@ -2,7 +2,7 @@
 import openpyxl
 from datetime import datetime, timedelta
 from collections import UserDict
-from typing import List, Union, Tuple
+from typing import List, Tuple
 from utilities.shared_types import Entry
 import utilities.params as p
 import utilities.utility_functions as uf
@@ -93,7 +93,7 @@ def return_depunctuated_bodyweights_text(text,
     return txt
 
 
-def extract_bodyweights_from_string(raw_string, split_on_parenthesis: bool) -> Union[List, Tuple[List, List]]:
+def extract_bodyweights_from_string(raw_string, split_on_parenthesis: bool) -> List[str] | Tuple[List[str], List[str]]:
     """
     Given a validated string, return the list of bodyweights found in that string. If split_on_parentheses,
     then return two lists - one containing values found inside parentheses, and one containing those outside
