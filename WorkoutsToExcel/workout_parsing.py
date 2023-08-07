@@ -23,6 +23,8 @@ class ParsedWorkout:
     def __post_init__(self):
         assert isinstance(self.title_datetime, datetime)
         assert isinstance(self.data, str)
+        # we don't want to accept workouts without a clearly defined year. 2000 is an arbitrary cutoff
+        assert self.title_datetime.year > 2000, "Workout year must be specified"
 
     def __repr__(self):
         return f"<{self.title_datetime}>: {self.data}"
@@ -78,17 +80,13 @@ def parse_workout_notes(workout_notes: List[Entry]) -> List[ParsedWorkout]:
         exercises_str, est_xx_mins_line = exercises_str.rsplit('; ', 1)
         complete_workout_text = exercises_str + ". " + est_xx_mins_line
 
-        # extract the date from the note title
-        clean_title = re.sub(re.compile(r",?\s?(day \d)|(cardio)|(workout)"), "", note.title.strip())
-        title_datetime = uf.convert_string_to_datetime(clean_title)
-
         # save the formatted workout
-        parsed_data_lst.append(ParsedWorkout(title_datetime=title_datetime, data=complete_workout_text))
+        parsed_data_lst.append(ParsedWorkout(title_datetime=note.title_datetime, data=complete_workout_text))
 
     return parsed_data_lst
 
 
-def pair_workouts_with_rows(parsed_workouts: List[ParsedWorkout]) -> Dict[int, ParsedWorkout]:
+def pair_workouts_with_rows(target_sheet, parsed_workouts: List[ParsedWorkout]) -> Dict[int, ParsedWorkout]:
     """
     Given a list of parsed workouts, pair each workout with a unique row in the target file, such that the cell value
     in the date column of that row equals the value of the workout's interpreted datetime.
@@ -99,9 +97,6 @@ def pair_workouts_with_rows(parsed_workouts: List[ParsedWorkout]) -> Dict[int, P
         print("No workouts to write")
         exit()
 
-    wb = openpyxl.load_workbook(p.TARGET_PATH)
-    sheet = wb[p.TARGET_SHEET]
-
     # the object to be returned
     workouts_to_write: Dict[int, ParsedWorkout] = {}
 
@@ -110,6 +105,7 @@ def pair_workouts_with_rows(parsed_workouts: List[ParsedWorkout]) -> Dict[int, P
     workout_already_written = []
     target_cell_contains_clashing_info = []
 
+    sheet = target_sheet
     for workout in parsed_workouts:
         row_match = uf.find_row_of_cell_matching_datetime(sheet=sheet,
                                                           datetime_target=workout.title_datetime,
