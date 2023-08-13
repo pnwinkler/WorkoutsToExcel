@@ -218,7 +218,7 @@ def main():
     for note in workout_notes:
         if is_deletion_candidate(xlsx_snippets=xlsx_snippets, note=note, end_date=end_date):
             deletion_candidates.append(note)
-            calculated_dates.append(uf.convert_string_to_datetime(note.title))
+            calculated_dates.append(note.title_datetime)
 
     # we don't expect to find multiple workout notes evaluating to the same date. This is likely a user entry error.
     # note that the note titles may still be different.
