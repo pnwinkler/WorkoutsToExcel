@@ -35,6 +35,9 @@ class Entry:
             return False
 
         # 2. the note must contain a date in the title, in the correct format
+        if "todo" in self.title.lower():
+            print(f"Skipping note with 'todo' in the title: `{self.title}`")
+            return False
         stripped_fmt = "YYYY-MM-DD".replace('-', '')
         title_stripped = self.title.replace("-", "")
         if not title_stripped[:len(stripped_fmt)].isdigit():
