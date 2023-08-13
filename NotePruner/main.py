@@ -125,11 +125,12 @@ def present_deletion_candidates(deletion_candidates: List[Entry], xlsx_snippets:
         note_snippet = note_snippet[:p.SNIPPET_LENGTH]
 
         floored_date = note.title_datetime.replace(hour=0, minute=0, second=0, microsecond=0)
+        printable_date = floored_date.strftime("%Y-%m-%d")
         xlsx_snippet = xlsx_snippets[floored_date].rstrip()[:p.SNIPPET_LENGTH]
         similarity = uf.get_string_pct_similarity(note_snippet, xlsx_snippet)
 
         # append the table row
-        tabulate_matrix.append([floored_date, note_snippet, xlsx_snippet, str(similarity) + "%"])
+        tabulate_matrix.append([printable_date, note_snippet, xlsx_snippet, str(similarity) + "%"])
 
     headers = ["Date", "Note snippet", "Exists in xlsx as...", "Similarity"]
     print(tabulate(tabulate_matrix, headers=headers))
