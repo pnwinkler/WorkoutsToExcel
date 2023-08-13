@@ -1,5 +1,4 @@
-from GKeepToCalc.KeepPruner.main import *
-
+from NotePruner.main import *
 
 # class LocalNote:
 #     def __init__(self, text, title):

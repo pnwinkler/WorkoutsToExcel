@@ -10,6 +10,3 @@ def test_is_est_xx_mins_line():
     assert is_est_xx_mins_line('Est 68 mins')
     assert is_est_xx_mins_line('Est 6 mins')
     assert is_est_xx_mins_line('Est 58.2 mins') is False
-
-
-

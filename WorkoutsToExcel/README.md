@@ -5,7 +5,7 @@ Instructions (for this program only) under "Wiki" tab.
 *How it works*
 1) This program reads notes from a Google Keep account.
 
-2) It filters notes matching a particular format (i.e. they're workout notes). The expected format is as follows: a date in the note's title such as "03 January", with the note's body containing an "est XX mins line", where "XX" refers to a 2-3 digit string or 2-3 question marks (not one!).
+2) It filters notes matching a particular format (i.e. they're workout notes). The expected format is as follows: a date in the note's title in the following format YYYY-MM-DD followed by any text (for example "2023-01-03 cardio workout"), with the note's text containing what we call an "est XX mins line", where "XX" refers to a string of 1-3 digits, or 1-3 question marks, but not both.
 
 3) It re-formats them on the local machine. At this stage, it asks the user to verify the file, whose location is specified in utilities/params.py "cleaned_data_path" variable. This file contains everything that the program has classified as workout data, according to step 2, in a slightly cleaned up state. The user's attention is requested in order to correct any erroneous data in that file, if any. That might be: absent workouts, or non-workouts mistaken as workouts.
 

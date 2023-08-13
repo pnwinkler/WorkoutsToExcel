@@ -1,2 +1,0 @@
-This package is to serve as the place where all functions required by multiple programs are put
-If, for example, both keep2calc and keep_pruner require an identical function, put it in this package
