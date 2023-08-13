@@ -83,10 +83,14 @@ def retrieve_xlsx_workout_snippets(sheet, max_row: int) -> Dict[datetime, str]:
         if not date_value:
             # if there's no date, there's no snippet to store
             continue
-        if not isinstance(date_value, datetime):
+        elif isinstance(date_value, str):
+            # if not isinstance(date_value, datetime):
             date_value = uf.convert_string_to_datetime(date_value, regress_future_dates=False)
-            floored_date = date_value.replace(hour=0, minute=0, second=0)
-            xlsx_snippets[floored_date] = workout
+
+        if not isinstance(date_value, datetime):
+            raise TypeError(f"date_value is not a datetime object. It is a {type(date_value)}")
+        floored_date = date_value.replace(hour=0, minute=0, second=0)
+        xlsx_snippets[floored_date] = workout
 
     return xlsx_snippets
 
