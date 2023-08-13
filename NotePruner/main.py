@@ -32,7 +32,8 @@ def is_deletion_candidate(xlsx_snippets: Dict[datetime, str], note: Entry, end_d
 
     # convert note title to datetime. Having multiple workouts with the same dates in their titles, or having workouts
     # whose title dates are > 364 days old is unsupported and likely to cause problems.
-    note_date = uf.convert_string_to_datetime(note.title, regress_future_dates=True)
+    assert note.title_datetime
+    note_date = note.title_datetime
 
     if note_date == -1:
         # failed to convert workout's note_date. It is incorrectly formatted.
