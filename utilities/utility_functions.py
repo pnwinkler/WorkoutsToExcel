@@ -40,8 +40,8 @@ def backup_file_to_dir(file_name: str, backup_directory: str) -> None:
     os.makedirs(backup_directory, exist_ok=True)
 
     now = datetime.now()
-    dmy = '-'.join(str(v) for v in [now.day, now.month, now.year])
-    backup_basename = "_".join(['backup', dmy, os.path.basename(file_name)])
+    ymd = '_'.join(str(v) for v in [now.year, now.month, now.day])
+    backup_basename = "_".join(['backup', ymd, os.path.basename(file_name)])
     full_backup_path = os.path.join(backup_directory, backup_basename)
 
     try:
