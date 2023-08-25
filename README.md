@@ -2,12 +2,12 @@ This is a personal project. This means you can use it as you like, but please no
 
 # What this repo contains
 
-A set of tools facilitating interactions between source files (either Google Keep Notes via API, or local text files),
+A set of tools facilitating interactions between source files (either Google Keep Notes via unofficial API, or local text files),
 and a local xlsx file.
 
 - BodyweightsToExcel retrieves bodyweights from source files and writes them to an xlsx file.
 - WorkoutsToExcel does the same with workouts.
-- KeepPruner deletes redundant source files.
+- NotePruner deletes redundant source files.
 
 For more details, consult their README files.
 
