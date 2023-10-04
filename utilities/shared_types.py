@@ -43,7 +43,9 @@ class Entry:
         if not title_stripped[:len(stripped_fmt)].isdigit():
             msg = f"The note with this title '{self.title}' contains an est XX mins line but no date could be " \
                   f"extracted from its title. This is an invalid combination."
-            raise ValueError(msg) if raise_on_invalid_format else print(msg)
+            if raise_on_invalid_format:
+                raise ValueError(msg)
+            print(msg)
             return False
 
         return True
