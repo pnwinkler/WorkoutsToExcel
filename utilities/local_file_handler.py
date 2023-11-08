@@ -9,7 +9,7 @@ from utilities.shared_types import Entry, Handler
 
 
 class LocalFileHandler(Handler):
-    # a class to handle all interactions with local files
+    # this class handles reading from, writing to, and updating local files
     def __init__(self):
         super().__init__()
 
@@ -18,7 +18,7 @@ class LocalFileHandler(Handler):
         self._notes: List[Entry] = self.retrieve_notes()
 
     @cache
-    def retrieve_notes(self) -> List[Entry]:
+    def retrieve_notes(self) -> List[Entry] | None:
         """
         Retrieve all notes from local filesystem, or None if no notes are found.
         :return: a dict of note objects, where the keys are the note titles, and the values are the note contents
@@ -33,7 +33,7 @@ class LocalFileHandler(Handler):
         print(f"No notes found in the following directory or any of its children `{p.LOCAL_SOURCE_DIR}`!")
         return []
 
-    def _retrieve_recursively(self, directory: str, max_depth=2) -> List[Entry]:
+    def _retrieve_recursively(self, directory: str, max_depth=2) -> List[Entry] | None:
         """
         Recursively retrieve notes from local filesystem if found, or None if no notes are found.
         :param directory: the directory to search
@@ -56,8 +56,6 @@ class LocalFileHandler(Handler):
                     # drop the file extension
                     notes.append(Entry(title=os.path.splitext(filename)[0], text=f.read(), edit_timestamp=as_datetime,
                                        path=os.path.join(directory, filename)))
-        if not any(notes):
-            return []
         return [note for note in notes if note]
 
     def return_bodyweights_note(self) -> Entry:
