@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 import openpyxl
 
@@ -100,9 +100,9 @@ def pair_workouts_with_rows(target_sheet, parsed_workouts: List[ParsedWorkout]) 
     workouts_to_write: Dict[int, ParsedWorkout] = {}
 
     # collect errors
-    failed_to_find_date_cell = []
-    workout_already_written = []
-    target_cell_contains_clashing_info = []
+    failed_to_find_date_cell: [ParsedWorkout] = []
+    workout_already_written: [ParsedWorkout] = []
+    workout_info_clashes: Dict[int, Tuple[ParsedWorkout, str]] = {}
 
     sheet = target_sheet
     for workout in parsed_workouts:
@@ -127,26 +127,26 @@ def pair_workouts_with_rows(target_sheet, parsed_workouts: List[ParsedWorkout]) 
 
         else:
             # save the workout object, and existing cell contents, for later comparison / context
-            target_cell_contains_clashing_info.append((workout, target_cell_data))
+            workout_info_clashes[row_match] = (workout, target_cell_data)
 
-    # processing done. Alert user to potential write problems, and request action if required
+    # processing done
     if len(failed_to_find_date_cell) != 0:
         raise RuntimeError(f"Failed to find row matches for the following {len(failed_to_find_date_cell)} "
                            f"workouts. Please verify that each of the matching date value exist in the target Excel "
                            f"file, in the correct place.\n{failed_to_find_date_cell}")
 
-    print(f"{len(workouts_to_write)} workouts can be written to target cells. {len(workout_already_written)} workouts "
-          f"are already written to target cells")
+    print(f"{len(workouts_to_write)} new workouts can be written to target cells. "
+          f"{len(workout_already_written)} workouts are already written to target cells")
 
     if len(workout_already_written) == len(parsed_workouts):
         print("No new workouts to write. Program exiting")
         exit()
 
-    if len(target_cell_contains_clashing_info) != 0:
-        print(f"The following {len(target_cell_contains_clashing_info)} workouts already have *different* values "
-              f"written to their target cells in the Excel. Please resolve this conflict.")
+    if len(workout_info_clashes) != 0:
+        print(f"The following {len(workout_info_clashes)} workouts already have *different* values "
+              f"written to their target cells in the Excel.")
 
-        for workout, target_cell_data in target_cell_contains_clashing_info:
+        for workout, target_cell_data in workout_info_clashes.values():
             neat_datetime = workout.title_datetime.strftime('%Y-%m-%d')
             similarity = uf.get_string_pct_similarity(workout.data, target_cell_data)
             print(f"{neat_datetime} INTENDED WRITE {similarity=}%:\t{workout.data}")
@@ -157,7 +157,11 @@ def pair_workouts_with_rows(target_sheet, parsed_workouts: List[ParsedWorkout]) 
             print("\nUser chose not to continue")
             exit()
 
-    return workouts_to_write
+    conflicting_workouts = {row: v[0] for row, v in workout_info_clashes.items()}
+    # sanity checks
+    assert all(isinstance(workout, ParsedWorkout) for workout in conflicting_workouts.values())
+    assert set(workouts_to_write.keys()).isdisjoint(set(conflicting_workouts.keys()))
+    return workouts_to_write | conflicting_workouts
 
 
 def write_data_to_xlsx(data_to_write: Dict[int, ParsedWorkout], backup=True) -> None:
@@ -177,7 +181,6 @@ def write_data_to_xlsx(data_to_write: Dict[int, ParsedWorkout], backup=True) -> 
     print(f"Writing {len(data_to_write)} workouts to target file.")
     for row, workout in data_to_write.items():
         target_cell = sheet.cell(row=row, column=p.WORKOUT_COLUMN)
-        assert not target_cell.value, "Programming error. Target cell already has value written. No changes made"
         target_cell.value = workout.data
 
     wb.save(p.TARGET_PATH)
