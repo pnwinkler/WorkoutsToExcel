@@ -60,8 +60,8 @@ def parse_workout_notes(workout_notes: List[Entry]) -> List[ParsedWorkout]:
 
             # the "+" symbol can be used at the beginning of the line in a note, to indicate an "extra" exercise (i.e.
             # one not part of the standard workout). We include the line, but not the "+" symbol.
-            parsed_line = parsed_line.replace('+ ', '')
-            parsed_line = parsed_line.replace('+', '')
+            parsed_line = parsed_line.lstrip('+ ')
+            parsed_line = parsed_line.lstrip('+')
 
             # trailing semi-colons can happen due to data entry errors
             if parsed_line.endswith(":"):
