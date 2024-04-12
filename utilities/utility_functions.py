@@ -44,10 +44,7 @@ def backup_file_to_dir(file_name: str, backup_directory: str) -> None:
     backup_basename = "_".join(['backup', ymd, os.path.basename(file_name)])
     full_backup_path = os.path.join(backup_directory, backup_basename)
 
-    try:
-        shutil.copy(file_name, full_backup_path)
-    except Exception as e:
-        print(f'Warning: Failed to backup target file to {full_backup_path}. Error: {e}')
+    shutil.copy(file_name, full_backup_path)
 
 
 def convert_string_to_datetime(date_str: str, regress_future_dates=True) -> datetime:
@@ -152,7 +149,7 @@ def return_first_absent_bodyweight_row(sheet, date_column: int, bodyweight_colum
 
     todays_row = find_row_of_cell_matching_datetime(sheet, datetime.now(), date_column, raise_on_failure=True)
     if sheet.cell(row=todays_row, column=bodyweight_column).value:
-        raise ValueError(f"Today's bodyweight cell is already written to")
+        raise RuntimeError(f"Today's bodyweight cell is already written to")
 
     first_occurrence = None
     for row in range(todays_row, 0, -1):
