@@ -27,8 +27,9 @@ def main():
                          f"note taking application. Without unique titles, we have no way of knowing which workout "
                          f"belongs to which row in the target file. \n{duplicated_titles=}")
     if duplicate_workout_dates:
-        raise RuntimeError("Two workouts were evaluated as corresponding to the same date. This program expects 0-1 "
-                           "workout notes per calendar date.")
+        raise RuntimeError("Two workouts were evaluated as corresponding to the same date. This program expects 0-1 " +
+                           f"workout notes per calendar date. \nThese are the duplicated dates: " +
+                           f"{duplicate_workout_dates}")
 
     # get each workout into a writeable format
     parsed_workouts = wp.parse_workout_notes(workout_notes)
@@ -41,8 +42,8 @@ def main():
     # write it to target file
     wp.write_data_to_xlsx(data_to_write, backup=True)
 
-    print("All done! Consider double-checking the now-updated target file, then running KeepPruner if you'd like to "
-          "delete the old entries from Keep")
+    print("All done! Consider double-checking the now-updated target file, then running the NotePruner script if "
+          "you'd like to either trash old Google Keep entries, or archive local files")
 
 
 if __name__ == '__main__':

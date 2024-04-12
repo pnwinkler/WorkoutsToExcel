@@ -8,20 +8,20 @@ GKEEPAPI_STR = "gkeepapi"
 
 # RETRIEVAL_METHOD specifies whether we retrieve data from local files (set to LOCAL_STR) or from Google Keep using
 # gkeepapi (set to GKEEPAPI_STR)
-RETRIEVAL_METHOD = GKEEPAPI_STR
+RETRIEVAL_METHOD = LOCAL_STR
 
 # LOCAL_SOURCE_DIR specifies the path of the directory containing the notes to be processed. This is only used if
 # RETRIEVAL_METHOD is set to LOCAL_STR.
-LOCAL_SOURCE_DIR = "YOUR/PATH/TO/LOCAL/NOTES"
+LOCAL_SOURCE_DIR = "/home/philip/obsidian_vaults/personal/personal_vault_1/Health"
 
 # TARGET_PATH specifies the path of the spreadsheet file to which you wish to write. TARGET_SHEET is the sheet within
 # that spreadsheet to which data will be written. To date, multiple target sheets may not be specified.
-TARGET_PATH = "YOUR/PATH/TO/EXCEL.xlsx"
-TARGET_SHEET = 'Bodyweight and workouts'
+TARGET_PATH = ("/home/philip/Pi_Sync/enc_files/personal/medication_and_health/food_eaten_diet.xlsx")
+TARGET_SHEET = "Bodyweight and workouts"
 
 # specifies the full path for the directory into which files will be backed up. For example: the file specified by
 # TARGET_PATH, the bodyweights file if running locally, and potentially workout files.
-LOCAL_BACKUP_DIR = "YOUR/PATH/TO/BACKUP_DIR"
+LOCAL_BACKUP_DIR = "/home/philip/Pi_Sync/enc_files/personal/medication_and_health/WorkoutsToExcel_backups"
 
 # these variables specify which columns the program expects to find dates, bodyweights and workouts in, within the
 # target spreadsheet. Note that the first column (A) maps to 1, not 0.
@@ -48,5 +48,5 @@ if RETRIEVAL_METHOD == GKEEPAPI_STR:
     try:
         import gkeepapi
     except ImportError:
-        raise ImportError("gkeepapi is specified as the retrieval method in params.py but is not installed. "
+        raise ImportError("gkeepapi is specified as the retrieval method in config.py but is not installed. "
                           "Please install it using 'pip install gkeepapi==0.14.1'")
