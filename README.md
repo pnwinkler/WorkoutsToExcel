@@ -21,6 +21,7 @@ For more details, consult their README files.
 # Worth noting
 
 - The library used for Google Keep API is unofficial, and **may break** at any time.
+- The code in this project to interact with Google Keep may no longer work (I haven't tested it in a while).
 - The wiki documentation may be a bit dated, and I make no promises that the rest of the documentation is fully current.
 
 These programs are distributed under the MIT license. They're free software, without warranty.
