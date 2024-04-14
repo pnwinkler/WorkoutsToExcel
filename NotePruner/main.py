@@ -245,8 +245,8 @@ def main():
         print("No changes made")
         exit()
     else:
-        handler.trash_notes(deletion_candidates)
-        print("Specified notes deleted. Program execution complete")
+        handler.discard_notes(deletion_candidates)
+        print("Specified notes discarded. Program execution complete.")
 
 
 if __name__ == '__main__':

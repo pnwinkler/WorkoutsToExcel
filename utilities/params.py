@@ -6,39 +6,39 @@ GKEEPAPI_STR = "gkeepapi"
 
 # CHANGE AS NEEDED:
 
-# RETRIEVAL_METHOD specifies whether we retrieve data from local files (set to LOCAL_STR) or from Google Keep using
+# This specifies whether we retrieve data from local files (set to LOCAL_STR) or from Google Keep using
 # gkeepapi (set to GKEEPAPI_STR)
 RETRIEVAL_METHOD = LOCAL_STR
 
-# LOCAL_SOURCE_DIR specifies the path of the directory containing the notes to be processed. This is only used if
-# RETRIEVAL_METHOD is set to LOCAL_STR.
-LOCAL_SOURCE_DIR = "/home/philip/obsidian_vaults/personal/personal_vault_1/Health"
+# These variables are only used if RETRIEVAL_METHOD is set to LOCAL_STR.
+# This specifies the full path of the directory containing the notes to be processed.
+LOCAL_NOTES_SOURCE_DIR = "/PATH/TO/WorkoutNotes"
+# This specifies the full path of the directory to which notes will be moved after being processed.
+LOCAL_NOTES_ARCHIVE_DIR = "/PATH/TO/WorkoutNotesArchive"
+# This specifies the full path for the directory into which the target Excel file will be backed up
+LOCAL_EXCEL_BACKUP_DIR = "/PATH/TO/ExcelBackupDirectory"
 
-# TARGET_PATH specifies the path of the spreadsheet file to which you wish to write. TARGET_SHEET is the sheet within
-# that spreadsheet to which data will be written. To date, multiple target sheets may not be specified.
-TARGET_PATH = ("/home/philip/Pi_Sync/enc_files/personal/medication_and_health/food_eaten_diet.xlsx")
-TARGET_SHEET = "Bodyweight and workouts"
+# This specifies the path of the spreadsheet file to which you wish to write.
+TARGET_PATH = "/PATH/TO/ExcelToWriteTo.xlsx"
+# This specifies the unique sheet name within that spreadsheet to which workout and bodyweight data will be written.
+TARGET_SHEET = "Name Of Your Sheet"
 
-# specifies the full path for the directory into which files will be backed up. For example: the file specified by
-# TARGET_PATH, the bodyweights file if running locally, and potentially workout files.
-LOCAL_BACKUP_DIR = "/home/philip/Pi_Sync/enc_files/personal/medication_and_health/WorkoutsToExcel_backups"
-
-# these variables specify which columns the program expects to find dates, bodyweights and workouts in, within the
+# These specify which columns the program expects to find dates, bodyweights and workouts in, within the
 # target spreadsheet. Note that the first column (A) maps to 1, not 0.
 DATE_COLUMN = 2
 BODYWEIGHT_COLUMN = 3
 WORKOUT_COLUMN = 5
 
-# if using gkeepapi, then this specifies the title of the only Google Keep note within which bodyweights are stored.
+# If using gkeepapi, then this specifies the title of the only Google Keep note within which bodyweights are stored.
 # case-insensitive
 BODYWEIGHTS_NOTE_TITLE = "Bodyweights note"
 
-# history_length specifies how many of the most recent bodyweights should be left in the bodyweights file after
+# History_length specifies how many of the most recent bodyweights should be left in the bodyweights file after
 # processing. These values are left to provide context, and will not be processed again.
 # integer > 0
 HISTORY_LENGTH = 3
 
-# this specifies how many characters of each note and potentially corresponding Excel snippet will be when presented
+# This specifies how many characters of each note and potentially corresponding Excel snippet will be when presented
 # to the user for comparison. This value is an integer > 0 specifying the number of characters.
 SNIPPET_LENGTH = 31
 
@@ -48,5 +48,5 @@ if RETRIEVAL_METHOD == GKEEPAPI_STR:
     try:
         import gkeepapi
     except ImportError:
-        raise ImportError("gkeepapi is specified as the retrieval method in config.py but is not installed. "
-                          "Please install it using 'pip install gkeepapi==0.14.1'")
+        raise ImportError("gkeepapi is specified as the retrieval method in params.py but is not installed. "
+                          "Please install it using 'pip install gkeepapi'")

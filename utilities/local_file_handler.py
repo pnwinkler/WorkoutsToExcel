@@ -23,14 +23,14 @@ class LocalFileHandler(Handler):
         Retrieve all notes from local filesystem, or None if no notes are found.
         :return: a dict of note objects, where the keys are the note titles, and the values are the note contents
         """
-        if not os.path.exists(p.LOCAL_SOURCE_DIR):
-            raise ValueError(f"Could not find source directory `{p.LOCAL_SOURCE_DIR}`")
+        if not os.path.exists(p.LOCAL_NOTES_SOURCE_DIR):
+            raise ValueError(f"Could not find source directory `{p.LOCAL_NOTES_SOURCE_DIR}`")
 
         print('Retrieving notes')
-        notes = self._retrieve_recursively(directory=p.LOCAL_SOURCE_DIR)
+        notes = self._retrieve_recursively(directory=p.LOCAL_NOTES_SOURCE_DIR)
         if notes:
             return notes
-        print(f"No notes found in the following directory or any of its children `{p.LOCAL_SOURCE_DIR}`!")
+        print(f"No notes found in the following directory or any of its children `{p.LOCAL_NOTES_SOURCE_DIR}`!")
         return []
 
     def _retrieve_recursively(self, directory: str, max_depth=2) -> List[Entry] | None:
@@ -73,14 +73,28 @@ class LocalFileHandler(Handler):
         Backup the old bodyweights note and replace it with a new one containing the new text.
         :return:
         """
-        bw_notes_path = self.return_bodyweights_note().path
-        uf.backup_file_to_dir(bw_notes_path, p.LOCAL_BACKUP_DIR)
-        with open(bw_notes_path, 'w') as f:
+        bw_note_path = self.return_bodyweights_note().path
+        uf.backup_file_to_dir(bw_note_path,
+                              p.LOCAL_NOTES_ARCHIVE_DIR,
+                              basename_override="backup_bodyweights_note",
+                              keep_date_info=True)
+        with open(bw_note_path, 'w') as f:
             f.write(new_text)
 
-    def trash_notes(self, notes: List[Entry]) -> None:
-        # todo: find cleaner solution
-        backup_dir = os.path.join(p.LOCAL_BACKUP_DIR, 'trashed_notes')
+    def discard_notes(self, notes: List[Entry]) -> None:
+        """
+        Moves the provided notes from their current path into the note archive directory.
+        """
         for note in notes:
-            uf.backup_file_to_dir(note.path, backup_dir)
-            os.remove(note.path)
+            try:
+                uf.backup_file_to_dir(note.path,
+                                      p.LOCAL_NOTES_ARCHIVE_DIR,
+                                      # personal preference. If it's already going to be in the archive directory,
+                                      # I don't need the word "backup" in the filename
+                                      basename_override=f"{note.title}",
+                                      keep_date_info=False)
+            except Exception as e:
+                print(f"Failed to backup file {note.path}. Error: {e}. This file will be left in place and untouched")
+            else:
+                # only remove the original file if backup was successful
+                os.remove(note.path)

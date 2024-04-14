@@ -73,6 +73,6 @@ class Handler(ABC):
         pass
 
     @abstractmethod
-    def trash_notes(self, notes: List[Entry]) -> None:
-        # trash the given notes
+    def discard_notes(self, notes: List[Entry]) -> None:
+        # perform some tidy-up of the given notes. This could entail trashing, deletion, or archiving, for example.
         pass

@@ -121,7 +121,7 @@ class KeepApiHandler(Handler):
         # without a wait sometimes sync doesn't complete
         time.sleep(3)
 
-    def trash_notes(self, notes: List[Entry]) -> None:
+    def discard_notes(self, notes: List[Entry]) -> None:
         # trash() is reversible. delete() is not. Trashed notes will be deleted in 7 days.
         ids_to_be_deleted = [note.unique_identifier for note in notes]
         for note_id, gkeep_note in self._note_objects.items():

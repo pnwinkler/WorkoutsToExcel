@@ -8,8 +8,6 @@ import utilities.params as p
 import utilities.utility_functions as uf
 from utilities.shared_types import Entry
 
-# todo: add tests. Make it clearer what each of these functions does.
-
 
 @dataclass
 class ParsedWorkout:
@@ -173,7 +171,7 @@ def write_data_to_xlsx(data_to_write: Dict[int, ParsedWorkout], backup=True) -> 
     """
 
     if backup:
-        uf.backup_file_to_dir(file_name=p.TARGET_PATH, backup_directory=p.LOCAL_BACKUP_DIR)
+        uf.backup_file_to_dir(source_file_name=p.TARGET_PATH, backup_directory=p.LOCAL_EXCEL_BACKUP_DIR)
 
     wb = openpyxl.load_workbook(p.TARGET_PATH)
     sheet = wb[p.TARGET_SHEET]

@@ -31,20 +31,41 @@ def return_handler() -> Handler:
             raise NotImplementedError(f"Retrieval method {p.RETRIEVAL_METHOD} not implemented.")
 
 
-def backup_file_to_dir(file_name: str, backup_directory: str) -> None:
+def backup_file_to_dir(source_file_name: str,
+                       backup_directory: str,
+                       basename_override: str = "",
+                       keep_date_info=True) -> None:
     """
-    Backup the file to the specified directory. Expect a full path. If the directory does not exist, create it.
-    :param file_name: the path to the file to be backed up. Path can be full, or filename only.
-    :param backup_directory: the directory to back the file up to. Path must be full.
+    This function backs up a file to a specified directory. If the directory does not exist, it creates it. The
+    default format of the new basename is "backup_YYYY_MM_DD_source_file_name". However, this can be overridden by
+    passing in the correct parameters.
+
+    :param source_file_name: The full path to the file to be backed up.
+    :param backup_directory: The directory to back the file up to. The path must be a full path.
+    :param basename_override: An optional string to override the basename of the backup file. Unless keep_date_info is
+    set to True, then this string will be the full basename.
+    :param keep_date_info: A boolean indicating whether to include the current date in the backup file's name.
+
+    :return: None.
     """
     os.makedirs(backup_directory, exist_ok=True)
 
-    now = datetime.now()
-    ymd = '_'.join(str(v) for v in [now.year, now.month, now.day])
-    backup_basename = "_".join(['backup', ymd, os.path.basename(file_name)])
-    full_backup_path = os.path.join(backup_directory, backup_basename)
+    basename_parts = []
+    if not basename_override:
+        basename_parts.append('backup')
+    else:
+        basename_parts.append(basename_override)
 
-    shutil.copy(file_name, full_backup_path)
+    if keep_date_info:
+        now = datetime.now()
+        ymd = '_'.join(str(v) for v in [now.year, now.month, now.day])
+        basename_parts.append(ymd)
+
+    if not basename_override:
+        basename_parts.append(os.path.basename(source_file_name))
+
+    full_backup_path = os.path.join(backup_directory, "_".join(basename_parts))
+    shutil.copy(source_file_name, full_backup_path)
 
 
 def convert_string_to_datetime(date_str: str, regress_future_dates=True) -> datetime:
