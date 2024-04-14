@@ -41,7 +41,7 @@ class LocalFileHandler(Handler):
         :return:
         """
         # todo: rename this variable
-        if (max_depth == -1) or (directory == p.LOCAL_BACKUP_DIR):
+        if (max_depth == -1) or (directory in [p.LOCAL_EXCEL_BACKUP_DIR, p.LOCAL_NOTES_ARCHIVE_DIR]):
             return []
 
         notes = []

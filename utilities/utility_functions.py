@@ -76,6 +76,8 @@ def convert_string_to_datetime(date_str: str, regress_future_dates=True) -> date
     future as of the time of execution.
     :return: a datetime object
     """
+    if isinstance(date_str, datetime):
+        return date_str
 
     assert isinstance(date_str, str), f"Invalid parameter type received {type(date_str)}. Expected string"
     for char in ['\n', ';', ' ', '.', '-', '_']:

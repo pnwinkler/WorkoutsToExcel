@@ -91,6 +91,10 @@ class TestExtractBodyweightsFromString(unittest.TestCase):
         result = extract_bodyweights_from_string(raw_string, True)
         self.assertEqual(result, (['70.5', '71.2'], ['?', '70.6']))
 
+        raw_string = '(70.5,71.2), ?, 70.6'
+        result = extract_bodyweights_from_string(raw_string, False)
+        self.assertEqual(result, (['70.5', '71.2', '?', '70.6']))
+
     def test_extract_bodyweights_from_string_with_no_parentheses(self):
         raw_string = '70.5, 71.2,?, 70.6'
         result = extract_bodyweights_from_string(raw_string, True)

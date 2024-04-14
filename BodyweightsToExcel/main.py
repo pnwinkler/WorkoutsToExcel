@@ -118,7 +118,9 @@ def extract_bodyweights_from_string(raw_string, split_on_parenthesis: bool) -> L
             return [], []
         return []
 
-    bodyweights = [val.strip() for val in raw_string.split(',') if val.replace(" ", "")]
+    bodyweights = [val.strip().replace("(", "").replace(")", "")
+                   for val in raw_string.split(',')
+                   if val.strip()]
 
     if not split_on_parenthesis:
         # Return all bodyweights in string
@@ -154,7 +156,7 @@ def validate_bodyweight_note_text(bw_note_text: str) -> None:
         raise ValueError("Empty parentheses in bodyweights note. If parentheses are provided in the note, then "
                          "they must surround at least 1 bodyweight")
 
-    de_punctuated_text = return_depunctuated_bodyweights_text(text)
+    de_punctuated_text = return_depunctuated_bodyweights_text(text).replace('\n', '')
     if len(de_punctuated_text) > 0 and not de_punctuated_text.isdigit():
         raise ValueError("Incorrectly formatted list of bodyweight provided in the bodyweights note")
 
