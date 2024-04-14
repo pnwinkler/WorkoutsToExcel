@@ -296,6 +296,8 @@ def main():
     print("Writing bodyweights to file")
     write_to_file(wb, sheet, row_bodyweight_mapping)
 
+    uf.backup_file_to_dir(source_file_name=bw_note.path, backup_directory=p.LOCAL_NOTES_ARCHIVE_DIR)
+
     # all done. We can replace the bodyweights note
     print("Updating bodyweights note")
     handler.replace_bodyweights_note(new_text=history)
