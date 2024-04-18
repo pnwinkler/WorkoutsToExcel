@@ -7,4 +7,4 @@ Each number indicates the user's bodyweight on a given day. The program expects 
 
 2) Each bodyweight is written to the cell neighboring the date on which that measurement was taken, in the target file. 
 
-3) Once complete, all but the last X measurements from the source note will be removed from the note (where X is an integer specified by the HISTORY_LENGTH parameter in params.py).
+3) Once complete, all but the last X measurements from the source note will be removed from the note (where X is an integer configurable in params.py).
