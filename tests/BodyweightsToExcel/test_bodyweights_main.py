@@ -49,11 +49,16 @@ class TestRowBodyweightPairings(unittest.TestCase):
 
     def test_add_valid_bodyweight(self):
         self.row_bodyweight_pairings[1] = 70.5
+        self.row_bodyweight_pairings[2] = '?'
         self.assertEqual(self.row_bodyweight_pairings[1], '70.5')
+        self.assertEqual(self.row_bodyweight_pairings[2], '?')
 
     def test_add_invalid_bodyweight(self):
         with self.assertRaises(AssertionError):
             self.row_bodyweight_pairings[1] = '70a'
+
+        with self.assertRaises(AssertionError):
+            self.row_bodyweight_pairings[2] = ''
 
     def test_add_duplicate_row(self):
         self.row_bodyweight_pairings[1] = 70.5
