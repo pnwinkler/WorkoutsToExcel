@@ -11,13 +11,11 @@ from utilities.shared_types import Entry
 
 
 class RowBodyweightPairings(UserDict):
-    # todo: add tests for this
     def __setitem__(self, row: int, bodyweight: str | float | int):
         # disallow duplicate rows, or the updating of values
         assert isinstance(row, int), "Row must be an integer"
         assert row not in self.data.keys(), "This key has already been used"
 
-        # validate bodyweight
         self.validate_bodyweight_text(bodyweight)
         self.data[int(row)] = str(bodyweight)
 
@@ -76,7 +74,7 @@ def format_bodyweight_history(history: List[str]) -> str:
     return f"(" + ", ".join(history) + "), "
 
 
-def return_depunctuated_bodyweights_text(text,
+def return_depunctuated_bodyweights_text(text: str,
                                          keep_decimal_separator=False,
                                          keep_spaces=False,
                                          keep_question_marks=False) -> str:
@@ -190,13 +188,14 @@ def pair_new_bodyweights_with_rows(sheet, bodyweights: List[float | str], start_
                 # skip empty cells in date column (e.g. at end of year), up to max length "max_empty_rows"
                 current_row += 1
                 count_empty += 1
-                if count_empty >= max_rows_without_date:
-                    raise RuntimeError(
-                        "Failed to pair bodyweights with rows matching those bodyweights' entry dates. Too many date "
-                        f"cells in the Excel sheet are missing datetime values (the cutoff is "
-                        f"{max_rows_without_date}). Please verify that the date cell column in your Excel sheet "
-                        "contains enough dates"
-                    )
+
+            if count_empty >= max_rows_without_date:
+                raise RuntimeError(
+                    "Failed to pair bodyweights with rows matching those bodyweights' entry dates. Too many date "
+                    f"cells in the Excel sheet are missing datetime values (the cutoff is "
+                    f"{max_rows_without_date}). Please verify that the date cell column in your Excel sheet "
+                    "contains enough dates"
+                )
 
         # check if bodyweight cell is already written to
         if sheet.cell(row=current_row, column=p.BODYWEIGHT_COLUMN).value is None:
