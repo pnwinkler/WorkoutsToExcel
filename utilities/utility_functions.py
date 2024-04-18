@@ -80,7 +80,7 @@ def convert_string_to_datetime(date_str: str, regress_future_dates=True) -> date
         return date_str
 
     assert isinstance(date_str, str), f"Invalid parameter type received {type(date_str)}. Expected string"
-    for char in ['\n', ';', ' ', '.', '-', '_']:
+    for char in ['\n', ';', ' ', '.', '-', '_', '/']:
         date_str = date_str.replace(char, '')
 
     # try to match the date string to a datetime object, with and without year
