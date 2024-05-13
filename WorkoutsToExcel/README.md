@@ -1,7 +1,7 @@
 This program identifies and reads workouts from the specified source, and writes them to the target sheet in the target Excel file. 
 
 **How it works** _(subject to change)_
-1) This program reads notes from a local files (txt, md).
+1) This program reads notes from local files (txt, md).
 
 2) It filters notes matching the expected format, namely: 
    - A date in the note's title in YYYY-MM-DD format followed by any text (for example "2024-01-03 cardio workout")...
