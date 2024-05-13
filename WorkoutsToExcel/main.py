@@ -3,6 +3,7 @@ from typing import List
 
 import openpyxl
 import workout_parsing as wp
+import utilities.local_file_handler as lr
 
 import utilities.params as p
 import utilities.utility_functions as uf
@@ -12,7 +13,7 @@ from utilities.shared_types import Entry
 def main():
     uf.validate_target_sheet_params()
 
-    handler = uf.return_handler()
+    handler = lr.LocalFileHandler()
     notes: List[Entry] = handler.retrieve_notes()
     workout_notes = [note for note in notes if note.is_valid_workout_note(raise_on_invalid_format=True)]
 

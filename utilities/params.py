@@ -6,10 +6,6 @@ GKEEPAPI_STR = "gkeepapi"
 
 # CHANGE AS NEEDED:
 
-# This specifies whether we retrieve data from local files (set to LOCAL_STR) or from Google Keep using
-# gkeepapi (set to GKEEPAPI_STR)
-RETRIEVAL_METHOD = LOCAL_STR
-
 # These variables are only used if RETRIEVAL_METHOD is set to LOCAL_STR.
 # This specifies the full path of the directory containing the notes to be processed.
 LOCAL_NOTES_SOURCE_DIR = "/PATH/TO/WorkoutNotes"
@@ -44,9 +40,3 @@ SNIPPET_LENGTH = 31
 
 # ______________________________________________________________________________________________________
 
-if RETRIEVAL_METHOD == GKEEPAPI_STR:
-    try:
-        import gkeepapi
-    except ImportError:
-        raise ImportError("gkeepapi is specified as the retrieval method in params.py but is not installed. "
-                          "Please install it using 'pip install gkeepapi'")

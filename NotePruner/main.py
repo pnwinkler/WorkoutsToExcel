@@ -4,6 +4,7 @@ from typing import Dict, List
 from collections import Counter
 
 import openpyxl
+import utilities.local_file_handler as lr
 from tabulate import tabulate
 
 import utilities.params as p
@@ -210,7 +211,7 @@ def main():
     uf.validate_target_sheet_params()
 
     # fail early: try this before greeting the user, in case that it fails (e.g. because of user config problem)
-    handler = uf.return_handler()
+    handler = lr.LocalFileHandler()
     notes = handler.retrieve_notes()
     workout_notes = [note for note in notes if note.is_valid_workout_note()]
     if not workout_notes:

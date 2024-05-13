@@ -7,7 +7,6 @@ from typing import List
 import openpyxl
 
 import utilities.params as p
-from utilities.shared_types import Handler
 
 
 def validate_target_sheet_params() -> None:
@@ -17,18 +16,6 @@ def validate_target_sheet_params() -> None:
     if not target_sheet_exists(p.TARGET_PATH, p.TARGET_SHEET):
         raise ValueError(f"Target xlsx does not contain sheet specified in params.py. "
                          f"This is the path\n{p.TARGET_PATH}")
-
-
-def return_handler() -> Handler:
-    match p.RETRIEVAL_METHOD:
-        case p.GKEEPAPI_STR:
-            import utilities.keep_api_handler as kf
-            return kf.KeepApiHandler()
-        case p.LOCAL_STR:
-            import utilities.local_file_handler as lr
-            return lr.LocalFileHandler()
-        case _:
-            raise NotImplementedError(f"Retrieval method {p.RETRIEVAL_METHOD} not implemented.")
 
 
 def backup_file_to_dir(source_file_path: str,

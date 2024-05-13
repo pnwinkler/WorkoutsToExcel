@@ -3,6 +3,7 @@ from collections import UserDict
 from datetime import datetime, timedelta
 from typing import List, Tuple
 
+import utilities.local_file_handler as lr
 import openpyxl
 
 import utilities.params as p
@@ -231,8 +232,7 @@ def write_to_file(wb, sheet, row_bodyweight_pairings: RowBodyweightPairings) -> 
 def main():
     uf.validate_target_sheet_params()
 
-    # use preferred retrieval method to retrieve notes
-    handler = uf.return_handler()
+    handler = lr.LocalFileHandler()
 
     wb = openpyxl.load_workbook(p.TARGET_PATH)
     sheet = wb[p.TARGET_SHEET]
