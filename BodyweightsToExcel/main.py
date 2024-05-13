@@ -96,17 +96,17 @@ def return_depunctuated_bodyweights_text(text: str,
     return txt
 
 
-def extract_bodyweights_from_string(raw_string, split_on_parenthesis: bool) -> List[str] | Tuple[List[str], List[str]]:
+def extract_bodyweights_from_string(string, split_on_parenthesis: bool) -> List[str] | Tuple[List[str], List[str]]:
     """
     Given a validated string, return the list of bodyweights found in that string. If split_on_parentheses,
     then return two lists - one containing values found inside parentheses, and one containing those outside
-    :param raw_string: a string containing comma-separated floats, ints, "?", or parentheses etc.
+    :param string: a string containing comma-separated floats, ints, "?", or parentheses etc.
     :param split_on_parenthesis: whether to split on parentheses (typically used for the context window)
     :return: one or two lists, containing bodyweights found in each group
     """
 
-    validate_bodyweight_note_text(raw_string)
-    depunc_str = return_depunctuated_bodyweights_text(raw_string,
+    validate_bodyweight_note_text(string)
+    depunc_str = return_depunctuated_bodyweights_text(string,
                                                       keep_decimal_separator=False,
                                                       keep_spaces=False,
                                                       keep_question_marks=True)
@@ -117,7 +117,7 @@ def extract_bodyweights_from_string(raw_string, split_on_parenthesis: bool) -> L
         return []
 
     bodyweights = [val.strip().replace("(", "").replace(")", "")
-                   for val in raw_string.split(',')
+                   for val in string.split(',')
                    if val.strip()]
 
     if not split_on_parenthesis:
@@ -125,10 +125,10 @@ def extract_bodyweights_from_string(raw_string, split_on_parenthesis: bool) -> L
         return bodyweights
 
     # Return 2 lists, split on closing parenthesis
-    if ")" in raw_string:
-        assert raw_string.count(")") == 1, "Too many ')' found in string"
-        raw_string = raw_string.strip("(").replace(",", " ")
-        split_1, split_2 = raw_string.split(")")
+    if ")" in string:
+        assert string.count(")") == 1, "Too many ')' found in string"
+        string = string.strip("(").replace(",", " ")
+        split_1, split_2 = string.split(")")
         context_window_weights = [val for val in split_1.split() if val.strip()]
         uncommitted_weights = [val for val in split_2.split() if val.strip()]
         return context_window_weights, uncommitted_weights
@@ -265,7 +265,8 @@ def main():
 
     # Separate the bodyweights that have been committed to file (which are saved in the context window) from those
     # that have not
-    _, uncommitted_bodyweights = extract_bodyweights_from_string(raw_string=bw_note.text,
+    bodyweights_string = uf.strip_obsidian_properties(bw_note.text)
+    _, uncommitted_bodyweights = extract_bodyweights_from_string(string=bodyweights_string,
                                                                  split_on_parenthesis=True)
 
     if len(uncommitted_bodyweights) == 0:
@@ -288,16 +289,16 @@ def main():
 
     # prepare history (or "context window") of the most recently committed-to-file bodyweights, to be written to the
     # bodyweight note
-    all_bodyweights = extract_bodyweights_from_string(bw_note.text, split_on_parenthesis=False)
+    all_bodyweights = extract_bodyweights_from_string(bodyweights_string, split_on_parenthesis=False)
     most_recent_bodyweights: List[str] = return_most_recent_bodyweights(bodyweights=all_bodyweights,
                                                                         desired_count=p.HISTORY_LENGTH)
     history: str = format_bodyweight_history(most_recent_bodyweights)
 
-    uf.backup_file_to_dir(source_file_name=p.TARGET_PATH, backup_directory=p.LOCAL_EXCEL_BACKUP_DIR)
+    uf.backup_file_to_dir(source_file_path=p.TARGET_PATH, backup_directory=p.LOCAL_EXCEL_BACKUP_DIR)
     print("Writing bodyweights to file")
     write_to_file(wb, sheet, row_bodyweight_mapping)
 
-    uf.backup_file_to_dir(source_file_name=bw_note.path, backup_directory=p.LOCAL_NOTES_ARCHIVE_DIR)
+    uf.backup_file_to_dir(source_file_path=bw_note.path, backup_directory=p.LOCAL_NOTES_ARCHIVE_DIR)
 
     # all done. We can replace the bodyweights note
     print("Updating bodyweights note")
