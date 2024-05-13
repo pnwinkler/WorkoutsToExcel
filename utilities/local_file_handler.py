@@ -58,15 +58,23 @@ class LocalFileHandler(Handler):
                                        path=os.path.join(directory, filename)))
         return [note for note in notes if note]
 
+    def is_bodyweights_note(self, note: Entry) -> bool:
+        return note.title.casefold().strip() == p.BODYWEIGHTS_NOTE_TITLE.casefold().strip()
+
     def return_bodyweights_note(self) -> Entry:
         """
-        Return the note that contains the bodyweight data.
+        Return the note that contains the bodyweight data. Raise if it can't be found, or multiple matches are found
         :return: the note object
         """
-        for note in self._notes:
-            if note.title.casefold().strip() == p.BODYWEIGHTS_NOTE_TITLE.casefold().strip():
-                return note
-        raise ValueError(f"Could not find note with title `{p.BODYWEIGHTS_NOTE_TITLE}`")
+        n = [note for note in self._notes if self.is_bodyweights_note(note)]
+        count = len(n)
+        match count:
+            case 0:
+                raise RuntimeError(f"Failed to find the bodyweights note.")
+            case 1:
+                return n[0]
+            case _:
+                raise RuntimeError(f"Found {count} bodyweight notes. Expected only one.")
 
     def replace_bodyweights_note(self, new_text):
         """
