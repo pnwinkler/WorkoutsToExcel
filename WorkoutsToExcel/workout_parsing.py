@@ -40,8 +40,9 @@ def parse_workout_notes(workout_notes: List[Entry]) -> List[ParsedWorkout]:
 
     parsed_data_lst = []
     for note in workout_notes:
-        # strip lines, and drop empty lines and comment lines.
-        workout_text = [line.strip() for line in note.text.split('\n')
+        # strip lines, remove Obsidian properties, drop empty lines and comment lines.
+        raw_text_no_properties: str = uf.strip_obsidian_properties(note.text)
+        workout_text = [line.strip() for line in raw_text_no_properties.split('\n')
                         if line
                         and not (line_is_comment(line) or line.startswith('\n'))]
 
@@ -78,7 +79,7 @@ def parse_workout_notes(workout_notes: List[Entry]) -> List[ParsedWorkout]:
         complete_workout_text = exercises_str + ". " + est_xx_mins_line
 
         # save the formatted workout
-        parsed_data_lst.append(ParsedWorkout(title_datetime=note.title_datetime, data=complete_workout_text))
+        parsed_data_lst.append(ParsedWorkout(title_datetime=note.floored_datetime, data=complete_workout_text))
 
     return parsed_data_lst
 
@@ -171,7 +172,7 @@ def write_data_to_xlsx(data_to_write: Dict[int, ParsedWorkout], backup=True) -> 
     """
 
     if backup:
-        uf.backup_file_to_dir(source_file_name=p.TARGET_PATH, backup_directory=p.LOCAL_EXCEL_BACKUP_DIR)
+        uf.backup_file_to_dir(source_file_path=p.TARGET_PATH, backup_directory=p.LOCAL_EXCEL_BACKUP_DIR)
 
     wb = openpyxl.load_workbook(p.TARGET_PATH)
     sheet = wb[p.TARGET_SHEET]
