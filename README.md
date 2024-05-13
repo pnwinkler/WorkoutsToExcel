@@ -2,8 +2,7 @@ This is a personal project. This means you can use it as you like, but please no
 
 # What this repo contains
 
-A set of tools facilitating interactions between source files (either Google Keep Notes via unofficial API, or local text files),
-and a local xlsx file.
+A set of tools facilitating interactions between source files (local text files), and a local xlsx file.
 
 - BodyweightsToExcel retrieves bodyweights from source files and writes them to an xlsx file.
 - WorkoutsToExcel does the same with workouts.
@@ -20,8 +19,6 @@ For more details, consult their README files.
 
 # Worth noting
 
-- The library used for Google Keep API is unofficial, and **may break** at any time.
-- The code in this project to interact with Google Keep may no longer work (I haven't tested it in a while).
 - The wiki documentation may be a bit dated, and I make no promises that the rest of the documentation is fully current.
 
 These programs are distributed under the MIT license. They're free software, without warranty.

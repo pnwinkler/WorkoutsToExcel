@@ -15,7 +15,7 @@ class Entry:
     title: str
     edit_timestamp: datetime | None = None
 
-    path: str | None = None  # could be a Keep URL or a full file path on the local system, for example
+    path: str | None = None  # this is the full path to the file
     unique_identifier: str | None = None
 
     def __post_init__(self):
