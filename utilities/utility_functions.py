@@ -216,3 +216,24 @@ def target_sheet_exists(excel_path: str, target_sheet_name: str) -> bool:
 def get_string_pct_similarity(str_1, str_2) -> int:
     float_num = SequenceMatcher(None, str_1, str_2).ratio()
     return int(float_num * 100)
+
+
+def strip_obsidian_properties(text: str) -> str:
+    """
+    Given a string, remove any Obsidian properties from it, then return it
+    :param text: the string to examine
+    :return: the string with Obsidian properties stripped out
+    """
+
+    # Obsidian uses these 3 dashes to indicate the start and end of a properties section
+    obsidian_separator = "---"
+
+    if not text.startswith(obsidian_separator):
+        return text
+
+    splt = text.split('\n')[1:]
+    for idx, line in enumerate(splt):
+        if line.strip() == obsidian_separator:
+            return '\n'.join(splt[idx + 1:])
+
+    raise ValueError("Found Obsidian separator only at start of note, but it's expected to occur twice")
