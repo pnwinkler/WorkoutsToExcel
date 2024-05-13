@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import List
 
+import utilities.utility_functions as uf
+
 
 @dataclass()
 class Entry:
@@ -18,37 +20,52 @@ class Entry:
 
     def __post_init__(self):
         # if the note is a workout note, parse the title to get the date, else set it to None.
-        self.title_datetime: datetime | None = None
+        self.floored_datetime: datetime | None = None
         if self.is_valid_workout_note(raise_on_invalid_format=False):
             # given a title like "2023-07-20 Deadlift day cycle 13 week 1.md", convert it to a datetime
-            from utilities.utility_functions import convert_string_to_datetime
             date_str = self.title.split()[0]
-            self.title_datetime = convert_string_to_datetime(date_str, regress_future_dates=False)
+            self.floored_datetime = (
+                uf.convert_string_to_datetime(date_str, regress_future_dates=False)
+                .replace(hour=0, minute=0, second=0, microsecond=0))
 
-    def is_valid_workout_note(self, raise_on_invalid_format=False) -> bool:
+    def is_valid_workout_note(self, raise_on_invalid_format=False, skip_todo_titles=True) -> bool:
+        """
+        Return whether a note is valid or not, as bool. A valid workout note must
+        1) end with a time estimate line,
+        2) have a date in the title YYYY-MM-DD format.
+        If the note title contains "todo" and skip_todo_titles is True, return False.
 
-        # 1. the note must contain an "est XX mins" line
+        :param raise_on_invalid_format: A bool indicating whether to raise an exception if the note format is invalid.
+        :param skip_todo_titles: A bool indicating whether to skip notes with "todo" in the title.
+
+        :return: A boolean indicating whether the note is a valid workout note.
+        """
+
         # "est ", followed by 1-3 digits or "?" characters, followed by " min" (case-insensitive). For example:
         # "Est 52 min", "est 5 mins", "Est ? mins", "est ?? mins"
         est_xx_mins_reg = re.compile(r'est (\d{1,3})|(\?{1,3}) min', re.IGNORECASE)
         if not bool(re.search(est_xx_mins_reg, self.text)):
             return False
 
-        # 2. the note must contain a date in the title, in the correct format
-        if "todo" in self.title.lower():
+        if "todo" in self.title.lower() and skip_todo_titles:
             print(f"Skipping note with 'todo' in the title: `{self.title}`")
             return False
-        stripped_fmt = "YYYY-MM-DD".replace('-', '')
-        title_stripped = self.title.replace("-", "")
-        if not title_stripped[:len(stripped_fmt)].isdigit():
-            msg = f"The note with this title '{self.title}' contains an est XX mins line but no date could be " \
-                  f"extracted from its title. This is an invalid combination."
-            if raise_on_invalid_format:
-                raise ValueError(msg)
-            print(msg)
-            return False
 
-        return True
+        expected_date = self.title.split()[0]
+        try:
+            uf.convert_string_to_datetime(expected_date)
+            return True
+        except ValueError:
+            pass
+
+        # strictly speaking, other date formats would probably be OK, but officially we only support YYYY-MM-DD
+        # (see README), so we encourage users to stick to that format.
+        print(f"The note with this title '{self.title}' contains a recognized time estimate line, but no date could be "
+              f"extracted from the note's title. This is an invalid combination. This program expects a date in the "
+              f"format YYYY-MM-DD at the beginning of the note title.")
+        if raise_on_invalid_format:
+            raise ValueError("Invalid workout note format")
+        return False
 
     def __repr__(self):
         return (f"Entry(title='{self.title}', text='{self.text[:20]}...', edit_timestamp={self.edit_timestamp}, "
