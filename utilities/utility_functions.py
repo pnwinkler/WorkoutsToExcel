@@ -31,7 +31,7 @@ def return_handler() -> Handler:
             raise NotImplementedError(f"Retrieval method {p.RETRIEVAL_METHOD} not implemented.")
 
 
-def backup_file_to_dir(source_file_name: str,
+def backup_file_to_dir(source_file_path: str,
                        backup_directory: str,
                        basename_override: str = "",
                        keep_date_info=True) -> None:
@@ -40,7 +40,7 @@ def backup_file_to_dir(source_file_name: str,
     default format of the new basename is "backup_YYYY_MM_DD_source_file_name". However, this can be overridden by
     passing in the correct parameters.
 
-    :param source_file_name: The full path to the file to be backed up.
+    :param source_file_path: The full path to the file to be backed up.
     :param backup_directory: The directory to back the file up to. The path must be a full path.
     :param basename_override: An optional string to override the basename of the backup file. Unless keep_date_info is
     set to True, then this string will be the full basename.
@@ -62,10 +62,11 @@ def backup_file_to_dir(source_file_name: str,
         basename_parts.append(ymd)
 
     if not basename_override:
-        basename_parts.append(os.path.basename(source_file_name))
+        basename_parts.append(os.path.basename(source_file_path))
 
-    full_backup_path = os.path.join(backup_directory, "_".join(basename_parts))
-    shutil.copy(source_file_name, full_backup_path)
+    extension = os.path.splitext(source_file_path)[1]
+    full_backup_path = os.path.join(backup_directory, "_".join(basename_parts)) + extension
+    shutil.copy(source_file_path, full_backup_path)
 
 
 def convert_string_to_datetime(date_str: str, regress_future_dates=True) -> datetime:
