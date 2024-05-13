@@ -25,8 +25,7 @@ DATE_COLUMN = 2
 BODYWEIGHT_COLUMN = 3
 WORKOUT_COLUMN = 5
 
-# If using gkeepapi, then this specifies the title of the only Google Keep note within which bodyweights are stored.
-# case-insensitive
+# The note within which bodyweights are stored should have this title (case-insensitive)
 BODYWEIGHTS_NOTE_TITLE = "Bodyweights note"
 
 # History_length specifies how many of the most recent bodyweights should be left in the bodyweights file after
