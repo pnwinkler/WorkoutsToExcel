@@ -58,7 +58,8 @@ class LocalFileHandler(Handler):
                                        path=os.path.join(directory, filename)))
         return [note for note in notes if note]
 
-    def is_bodyweights_note(self, note: Entry) -> bool:
+    @staticmethod
+    def is_bodyweights_note(note: Entry) -> bool:
         return note.title.casefold().strip() == p.BODYWEIGHTS_NOTE_TITLE.casefold().strip()
 
     def return_bodyweights_note(self) -> Entry:

@@ -88,6 +88,7 @@ def pair_workouts_with_rows(target_sheet, parsed_workouts: List[ParsedWorkout]) 
     """
     Given a list of parsed workouts, pair each workout with a unique row in the target file, such that the cell value
     in the date column of that row equals the value of the workout's interpreted datetime.
+    :param target_sheet: the target sheet to inspect
     :param parsed_workouts: a list of fully formatted workouts
     :return: a list of parsed workouts, each paired with suitable row number.
     """
