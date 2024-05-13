@@ -1,6 +1,3 @@
-# supported retrieval methods:
-LOCAL_STR = "local"
-GKEEPAPI_STR = "gkeepapi"
 
 # ______________________________________________________________________________________________________
 
