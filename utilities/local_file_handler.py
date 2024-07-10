@@ -33,15 +33,19 @@ class LocalFileHandler(Handler):
         print(f"No notes found in the following directory or any of its children `{p.LOCAL_NOTES_SOURCE_DIR}`!")
         return []
 
-    def _retrieve_recursively(self, directory: str, max_depth=2) -> List[Entry] | None:
+    def _retrieve_recursively(self, directory: str, max_depth=5, include_archive=True) -> List[Entry] | None:
         """
         Recursively retrieve notes from local filesystem if found, or None if no notes are found.
         :param directory: the directory to search
         :param max_depth: break if this depth is reached
         :return:
         """
-        # todo: rename this variable
-        if (max_depth == -1) or (directory in [p.LOCAL_EXCEL_BACKUP_DIR, p.LOCAL_NOTES_ARCHIVE_DIR]):
+        ignore_dirs = [p.LOCAL_EXCEL_BACKUP_DIR]
+        if include_archive:
+            ignore_dirs.append(p.LOCAL_NOTES_ARCHIVE_DIR)
+
+        # todo: rename max_depth variable
+        if (max_depth == -1) or (directory in ignore_dirs):
             return []
 
         notes = []
