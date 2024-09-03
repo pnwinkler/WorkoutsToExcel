@@ -41,7 +41,7 @@ class LocalFileHandler(Handler):
         :return:
         """
         ignore_dirs = [p.LOCAL_EXCEL_BACKUP_DIR]
-        if include_archive:
+        if not include_archive:
             ignore_dirs.append(p.LOCAL_NOTES_ARCHIVE_DIR)
 
         # todo: rename max_depth variable
